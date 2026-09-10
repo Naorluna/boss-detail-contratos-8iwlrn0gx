@@ -1,16 +1,6 @@
 import React, { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  LogOut,
-  Menu,
-  X,
-  PlusCircle,
-  Shield,
-  Sparkles,
-} from 'lucide-react'
+import { Users, FileText, LogOut, Menu, X, PlusCircle, Shield, Sparkles } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -43,12 +33,6 @@ export default function Layout() {
 
   const navItems = [
     {
-      label: 'Dashboard',
-      path: '/',
-      icon: LayoutDashboard,
-      active: location.pathname === '/' && !location.search.includes('view=contratos'),
-    },
-    {
       label: 'Franqueados',
       path: '/franqueados',
       icon: Users,
@@ -56,16 +40,15 @@ export default function Layout() {
     },
     {
       label: 'Contratos',
-      path: '/?view=contratos',
+      path: '/',
       icon: FileText,
-      active:
-        location.search.includes('view=contratos') || location.pathname.startsWith('/contratos'),
+      active: location.pathname === '/' || location.pathname.startsWith('/contratos'),
     },
   ]
 
   const getPageTitle = () => {
     if (location.pathname === '/') {
-      return location.search.includes('view=contratos') ? 'Contratos' : 'Painel de Controle'
+      return 'Contratos'
     }
     if (location.pathname === '/franqueados') return 'Unidades Franqueadas'
     if (location.pathname === '/franqueados/novo') return 'Nova Franquia'
