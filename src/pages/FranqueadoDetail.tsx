@@ -31,7 +31,7 @@ import {
 import type { Franqueado, Socio, Contrato, ContractType, Documento } from '@/types'
 import { computeContractExpiry } from '@/types'
 import { formatDateBR, formatCNPJ, formatPhone, formatCPFOrCNPJ } from '@/lib/formatters'
-import { StatusBadge } from '@/components/StatusBadge'
+import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -593,7 +593,7 @@ export default function FranqueadoDetail() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="text-base font-bold text-slate-900">{contrato.tipo}</span>
-                      <StatusBadge status={contrato.status} />
+                      <StatusBadge status={getStatusExibido(contrato)} />
 
                       {/* Expiry Pill (apenas para contratos não-inauguração com vencimento) */}
                       {contrato.tipo !== 'Inauguração' && (

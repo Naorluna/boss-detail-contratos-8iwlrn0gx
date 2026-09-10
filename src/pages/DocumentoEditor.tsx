@@ -21,7 +21,7 @@ import { contratosService } from '@/services/dataService'
 import type { Contrato, Franqueado } from '@/types'
 import { computeContractExpiry } from '@/types'
 import { formatDateBR, formatDateInput } from '@/lib/formatters'
-import { StatusBadge } from '@/components/StatusBadge'
+import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -424,7 +424,7 @@ export default function DocumentoEditor() {
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">
               {contrato.tipo} — {franqueado.nome}
             </h2>
-            <StatusBadge status={contrato.status} />
+            <StatusBadge status={getStatusExibido(contrato)} />
 
             {expiry.isExpired ? (
               <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 px-2.5 py-0.5 rounded-full shadow-xs">

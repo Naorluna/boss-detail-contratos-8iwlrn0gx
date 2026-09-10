@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Clock, Plus, FileCheck2, Paperclip, Calendar, Pencil } from 'lucide-react'
-import { StatusBadge } from './StatusBadge'
+import { StatusBadge, getStatusExibido } from './StatusBadge'
 import { computeContractExpiry, type Contrato, type ContractType } from '@/types'
 import { formatDateBR } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,7 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
     return (
       <div className="p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-all shadow-xs">
         <div className="flex items-center justify-between gap-1 mb-1.5">
-          <StatusBadge status={contrato.status} />
+          <StatusBadge status={getStatusExibido(contrato)} />
         </div>
 
         <div className="space-y-0.5">
@@ -108,7 +108,7 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
   return (
     <div className={containerStyles}>
       <div className="flex items-center justify-between gap-1 mb-1.5">
-        <StatusBadge status={contrato.status} />
+        <StatusBadge status={getStatusExibido(contrato)} />
 
         {/* Expiry / Red alert Pill */}
         {expiry.isExpired ? (

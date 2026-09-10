@@ -22,7 +22,7 @@ import type { Franqueado, Contrato, ContractType, ContractStatus } from '@/types
 import { computeContractExpiry } from '@/types'
 import { formatDateBR } from '@/lib/formatters'
 import { ContractCell } from '@/components/ContractCell'
-import { StatusBadge } from '@/components/StatusBadge'
+import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
 import { useRealtime } from '@/hooks/use-realtime'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -149,6 +149,12 @@ export default function Index() {
           if (statusFilter === 'Vencido') {
             const expiry = computeContractExpiry(c.data_fim, c.status)
             return expiry.isExpired
+          }
+          if (statusFilter === 'Assinado') {
+            return c.status === 'Assinado' || getStatusExibido(c) === 'Realizada'
+          }
+          if (c.tipo === 'Inauguração') {
+            return getStatusExibido(c) === statusFilter
           }
           return c.status === statusFilter
         })

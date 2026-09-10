@@ -1,15 +1,55 @@
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import type { ContractStatus } from '@/types'
+import type { Contrato, ContractStatus } from '@/types'
+
+export type DisplayStatus = ContractStatus | 'Realizada'
+
+/**
+ * Deriva o status exibido do contrato:
+ * - Para contratos do tipo "Inauguração":
+ *     - "Realizada" se houver data de inauguração informada (data_inauguracao ou data_inicio ou no franqueado)
+ *     - "Pendente" se não houver data
+ * - Para os demais tipos de contratos:
+ *     - Retorna o campo contrato.status
+ */
+export function getStatusExibido(
+  contrato?: Contrato | null,
+  overrideDataInauguracao?: string,
+): DisplayStatus {
+  if (!contrato) return 'Pendente'
+
+  if (contrato.tipo === 'Inauguração') {
+    const rawDate =
+      overrideDataInauguracao ??
+      (contrato.data_inauguracao ||
+        contrato.data_inicio ||
+        contrato.expand?.franqueado?.data_inauguracao)
+    const hasDate = Boolean(rawDate && String(rawDate).trim())
+    return hasDate ? 'Realizada' : 'Pendente'
+  }
+
+  return contrato.status || 'Pendente'
+}
 
 interface StatusBadgeProps {
-  status: ContractStatus
+  status: DisplayStatus | ContractStatus
   className?: string
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
   switch (status) {
+    case 'Realizada':
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm',
+            className,
+          )}
+        >
+          Realizada
+        </span>
+      )
     case 'Pendente':
       return (
         <span
