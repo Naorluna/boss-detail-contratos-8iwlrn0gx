@@ -105,7 +105,9 @@ export default function Index() {
   // Stat metrics computation
   const stats = useMemo(() => {
     const totalFranqueados = franqueados.length
-    const assinados = contratos.filter((c) => c.status === 'Assinado').length
+    const assinados = contratos.filter(
+      (c) => c.tipo === 'Contrato' && c.status === 'Assinado',
+    ).length
 
     let aVencerCount = 0
     let vencidosCount = 0
