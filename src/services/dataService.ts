@@ -69,7 +69,7 @@ export const franqueadosService = {
         tipo,
         status: 'Pendente',
         ...(tipo === 'Inauguração' && data.data_inauguracao
-          ? { data_inicio: data.data_inauguracao }
+          ? { data_inicio: data.data_inauguracao, data_inauguracao: data.data_inauguracao }
           : {}),
       })
     }
@@ -116,6 +116,7 @@ export const contratosService = {
     data_fim?: string | null
     data_assinatura?: string | null
     data_envio?: string | null
+    data_inauguracao?: string | null
     createDocWithTemplate?: boolean
   }): Promise<Contrato> {
     const { createDocWithTemplate, ...rest } = data

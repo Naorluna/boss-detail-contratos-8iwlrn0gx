@@ -59,6 +59,10 @@ export default function DocumentoEditor() {
   const [dataEnvio, setDataEnvio] = useState<string>('')
   const [savingDataEnvio, setSavingDataEnvio] = useState(false)
 
+  // Data de inauguração state (para tipo Inauguração)
+  const [dataInauguracao, setDataInauguracao] = useState<string>('')
+  const [savingDataInauguracao, setSavingDataInauguracao] = useState(false)
+
   // Selected file state (before save)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -72,6 +76,10 @@ export default function DocumentoEditor() {
       setFranqueado(c.expand?.franqueado || null)
       setDataAssinatura(c.data_assinatura ? formatDateInput(c.data_assinatura) : '')
       setDataEnvio(c.data_envio ? formatDateInput(c.data_envio) : '')
+      // Prioridade: c.data_inauguracao ou c.data_inicio ou franqueado.data_inauguracao
+      const initialInaug =
+        c.data_inauguracao || c.data_inicio || c.expand?.franqueado?.data_inauguracao || ''
+      setDataInauguracao(initialInaug ? formatDateInput(initialInaug) : '')
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar contrato',
@@ -180,6 +188,36 @@ export default function DocumentoEditor() {
       })
     } finally {
       setSavingDataAssinatura(false)
+    }
+  }
+
+  // Salvar apenas a Data de Inauguração
+  const handleSaveDataInauguracao = async () => {
+    if (!contrato) return
+    setSavingDataInauguracao(true)
+    try {
+      const isoDate = dataInauguracao ? new Date(dataInauguracao).toISOString() : ''
+      const payload: Partial<Contrato> = {
+        data_inauguracao: isoDate,
+        data_inicio: isoDate,
+      }
+      const updated = await contratosService.update(contrato.id, payload)
+      setContrato(updated)
+      setDataInauguracao(updated.data_inauguracao ? formatDateInput(updated.data_inauguracao) : '')
+      toast({
+        title: 'Data de inauguração salva!',
+        description: dataInauguracao
+          ? `Data definida para ${formatDateBR(updated.data_inauguracao)}.`
+          : 'Data de inauguração removida.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar data de inauguração',
+        description: err?.message || 'Falha ao atualizar a data.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingDataInauguracao(false)
     }
   }
 
@@ -357,6 +395,8 @@ export default function DocumentoEditor() {
     contrato.documento_assinado && /\.(png|jpe?g|webp)$/i.test(contrato.documento_assinado),
   )
 
+  const isInauguracao = contrato.tipo === 'Inauguração'
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Top Header / Breadcrumb & Status */}
@@ -400,27 +440,46 @@ export default function DocumentoEditor() {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-            <p>
-              Vigência:{' '}
-              <span className="font-semibold text-slate-700">
-                {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
-                {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
-              </span>
-            </p>
-
-            {contrato.data_envio && (
-              <p className="flex items-center gap-1 text-purple-700 font-medium bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
-                <Send className="w-3 h-3 text-purple-600" />
-                Enviado em <span className="font-bold">{formatDateBR(contrato.data_envio)}</span>
+            {isInauguracao ? (
+              <p>
+                {contrato.data_inauguracao || contrato.data_inicio ? (
+                  <span className="flex items-center gap-1 text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                    <Calendar className="w-3 h-3 text-amber-600" />
+                    Inauguração prevista/realizada em{' '}
+                    <strong className="text-amber-900">
+                      {formatDateBR(contrato.data_inauguracao || contrato.data_inicio)}
+                    </strong>
+                  </span>
+                ) : (
+                  <span className="italic text-slate-400">Data de inauguração não registrada</span>
+                )}
               </p>
-            )}
+            ) : (
+              <>
+                <p>
+                  Vigência:{' '}
+                  <span className="font-semibold text-slate-700">
+                    {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
+                    {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
+                  </span>
+                </p>
 
-            {contrato.data_assinatura && (
-              <p className="flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                <Calendar className="w-3 h-3 text-emerald-600" />
-                Data de Assinatura:{' '}
-                <span className="font-bold">{formatDateBR(contrato.data_assinatura)}</span>
-              </p>
+                {contrato.data_envio && (
+                  <p className="flex items-center gap-1 text-purple-700 font-medium bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                    <Send className="w-3 h-3 text-purple-600" />
+                    Enviado em{' '}
+                    <span className="font-bold">{formatDateBR(contrato.data_envio)}</span>
+                  </p>
+                )}
+
+                {contrato.data_assinatura && (
+                  <p className="flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    <Calendar className="w-3 h-3 text-emerald-600" />
+                    Data de Assinatura:{' '}
+                    <span className="font-bold">{formatDateBR(contrato.data_assinatura)}</span>
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -437,391 +496,497 @@ export default function DocumentoEditor() {
             Voltar
           </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleMarkAsSent}
-            disabled={uploading || updatingStatus || contrato.status === 'Assinado'}
-            className="text-purple-700 border-purple-200 hover:bg-purple-50 text-xs font-semibold gap-1.5"
-          >
-            {updatingStatus ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Send className="w-3.5 h-3.5" />
-            )}
-            Marcar como Enviado
-          </Button>
+          {!isInauguracao && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleMarkAsSent}
+                disabled={uploading || updatingStatus || contrato.status === 'Assinado'}
+                className="text-purple-700 border-purple-200 hover:bg-purple-50 text-xs font-semibold gap-1.5"
+              >
+                {updatingStatus ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
+                Marcar como Enviado
+              </Button>
 
-          <Button
-            size="sm"
-            onClick={handleMarkAsSigned}
-            disabled={uploading || updatingStatus || contrato.status === 'Assinado'}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 shadow-sm"
-          >
-            {updatingStatus ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            )}
-            Marcar como Assinado
-          </Button>
+              <Button
+                size="sm"
+                onClick={handleMarkAsSigned}
+                disabled={uploading || updatingStatus || contrato.status === 'Assinado'}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 shadow-sm"
+              >
+                {updatingStatus ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                Marcar como Assinado
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Main Upload Card */}
-      <Card className="border-slate-200 bg-white shadow-xs rounded-xl overflow-hidden">
-        <CardHeader className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-              <FileCheck2 className="w-5 h-5" />
-            </div>
-            <div>
-              <CardTitle className="text-base font-bold text-slate-900">
-                Documento Assinado
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Faça o upload do documento assinado (PDF ou imagem) para este contrato.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-6 space-y-6">
-          {/* Seção com Datas: Envio e Assinatura */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Campo Data de Envio */}
-            <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
-              <div className="flex flex-col justify-between gap-4 h-full">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="data_envio_input"
-                    className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
-                  >
-                    <Send className="w-3.5 h-3.5 text-purple-600" />
-                    Data de Envio
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="data_envio_input"
-                      type="date"
-                      value={dataEnvio}
-                      onChange={(e) => setDataEnvio(e.target.value)}
-                      className="text-xs h-9 bg-white"
-                    />
-                    {dataEnvio && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDataEnvio('')}
-                        disabled={savingDataEnvio}
-                        className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
-                        title="Limpar data"
-                      >
-                        Limpar
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Data em que o contrato foi enviado para o franqueado.
-                  </p>
-                </div>
-
-                {/* Botão de salvar data de envio individualmente */}
-                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
-                  <div className="text-xs text-slate-500">
-                    {contrato.data_envio ? (
-                      <span>
-                        Gravada:{' '}
-                        <strong className="text-slate-800">
-                          {formatDateBR(contrato.data_envio)}
-                        </strong>
-                      </span>
-                    ) : (
-                      <span className="italic text-slate-400">Não registrada</span>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleSaveDataEnvio}
-                    disabled={
-                      savingDataEnvio ||
-                      uploading ||
-                      dataEnvio ===
-                        (contrato.data_envio ? formatDateInput(contrato.data_envio) : '')
-                    }
-                    className="text-xs font-semibold h-8 gap-1.5 border-slate-300 hover:bg-slate-100"
-                  >
-                    {savingDataEnvio ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Save className="w-3.5 h-3.5" />
-                    )}
-                    Salvar Data
-                  </Button>
-                </div>
+      {isInauguracao ? (
+        /* Card Dedicado Apenas para Lançar Data de Inauguração */
+        <Card className="border-slate-200 bg-white shadow-xs rounded-xl overflow-hidden">
+          <CardHeader className="p-6 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Data de Inauguração
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500 mt-0.5">
+                  Lance ou atualize a data prevista ou realizada de inauguração desta franquia. Não
+                  existe documento para este tipo.
+                </CardDescription>
               </div>
             </div>
+          </CardHeader>
 
-            {/* Campo Data de Assinatura */}
-            <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
-              <div className="flex flex-col justify-between gap-4 h-full">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="data_assinatura_input"
-                    className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                    Data de Assinatura
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="data_assinatura_input"
-                      type="date"
-                      value={dataAssinatura}
-                      onChange={(e) => setDataAssinatura(e.target.value)}
-                      className="text-xs h-9 bg-white"
-                    />
-                    {dataAssinatura && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDataAssinatura('')}
-                        disabled={savingDataAssinatura}
-                        className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
-                        title="Limpar data"
-                      >
-                        Limpar
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Data em que o documento foi assinado pelas partes.
-                  </p>
-                </div>
-
-                {/* Botão de salvar data individualmente */}
-                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
-                  <div className="text-xs text-slate-500">
-                    {contrato.data_assinatura ? (
-                      <span>
-                        Gravada:{' '}
-                        <strong className="text-slate-800">
-                          {formatDateBR(contrato.data_assinatura)}
-                        </strong>
-                      </span>
-                    ) : (
-                      <span className="italic text-slate-400">Não registrada</span>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleSaveDataAssinatura}
-                    disabled={
-                      savingDataAssinatura ||
-                      uploading ||
-                      dataAssinatura ===
-                        (contrato.data_assinatura ? formatDateInput(contrato.data_assinatura) : '')
-                    }
-                    className="text-xs font-semibold h-8 gap-1.5 border-slate-300 hover:bg-slate-100"
-                  >
-                    {savingDataAssinatura ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Save className="w-3.5 h-3.5" />
-                    )}
-                    Salvar Data
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Se já houver arquivo anexado no PocketBase */}
-          {contrato.documento_assinado && (
-            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    {isImageFile ? (
-                      <ImageIcon className="w-5 h-5" />
-                    ) : (
-                      <FileText className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-emerald-950 truncate max-w-sm">
-                        {contrato.documento_assinado}
-                      </span>
-                      <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                        Anexado
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-emerald-700 mt-0.5">
-                      Arquivo disponível no servidor
-                    </p>
-                  </div>
-                </div>
-
+          <CardContent className="p-6 space-y-6">
+            <div className="max-w-md p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-4">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="data_inauguracao_input"
+                  className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                  Data de Inauguração
+                </Label>
                 <div className="flex items-center gap-2">
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="border-emerald-300 text-emerald-900 hover:bg-emerald-100/80 text-xs font-semibold gap-1.5 h-8"
-                  >
-                    <a
-                      href={existingFileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Abrir arquivo em nova aba"
+                  <Input
+                    id="data_inauguracao_input"
+                    type="date"
+                    value={dataInauguracao}
+                    onChange={(e) => setDataInauguracao(e.target.value)}
+                    className="text-xs h-9 bg-white"
+                  />
+                  {dataInauguracao && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDataInauguracao('')}
+                      disabled={savingDataInauguracao}
+                      className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
+                      title="Limpar data"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Visualizar / Baixar
-                    </a>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setConfirmRemoveOpen(true)}
-                    disabled={uploading || removingFile}
-                    className="text-slate-400 hover:text-red-600 h-8 w-8"
-                    title="Remover anexo atual"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                      Limpar
+                    </Button>
+                  )}
                 </div>
+                <p className="text-[11px] text-slate-500">
+                  Data em que a unidade franqueada iniciou ou iniciará suas operações.
+                </p>
               </div>
-            </div>
-          )}
 
-          {/* Hidden File Input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,application/pdf,image/png,image/jpeg,image/jpg,image/webp"
-            onChange={handleFileInputChange}
-            className="hidden"
-          />
+              {/* Botão de salvar data dedicado */}
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
+                <div className="text-xs text-slate-500">
+                  {contrato.data_inauguracao || contrato.data_inicio ? (
+                    <span>
+                      Gravada:{' '}
+                      <strong className="text-slate-800">
+                        {formatDateBR(contrato.data_inauguracao || contrato.data_inicio)}
+                      </strong>
+                    </span>
+                  ) : (
+                    <span className="italic text-slate-400">Não registrada</span>
+                  )}
+                </div>
 
-          {/* Drag & Drop Area */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all flex flex-col items-center justify-center gap-3 ${
-              isDragOver
-                ? 'border-amber-500 bg-amber-50/50 scale-[1.005]'
-                : selectedFile
-                  ? 'border-amber-400 bg-amber-50/20'
-                  : 'border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400'
-            }`}
-          >
-            <div
-              className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${
-                selectedFile
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
-              }`}
-            >
-              {selectedFile ? <FileCheck2 className="w-6 h-6" /> : <Upload className="w-6 h-6" />}
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-slate-800">
-                {selectedFile ? (
-                  <span>
-                    Arquivo selecionado:{' '}
-                    <strong className="text-amber-700">{selectedFile.name}</strong>
-                  </span>
-                ) : contrato.documento_assinado ? (
-                  'Clique ou arraste um novo arquivo para substituir o atual'
-                ) : (
-                  'Clique para selecionar ou arraste o arquivo até aqui'
-                )}
-              </p>
-              <p className="text-xs text-slate-400">
-                Suporta PDF, PNG, JPG, JPEG ou WEBP (até 20 MB)
-              </p>
-            </div>
-
-            {selectedFile ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-300 text-xs text-amber-900 font-medium">
-                <span>{selectedFile.name}</span>
-                <span className="text-amber-700">({formatFileSize(selectedFile.size)})</span>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  fileInputRef.current?.click()
-                }}
-                className="text-xs font-semibold mt-1"
-              >
-                Selecionar do computador
-              </Button>
-            )}
-          </div>
-
-          {/* Action Footer: Anexar / Salvar arquivo */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
-            <div className="text-xs text-slate-500">
-              {contrato.documento_assinado ? (
-                <span>
-                  O contrato possui documento assinado.{' '}
-                  {selectedFile ? 'Salve para substituir pelo novo arquivo.' : ''}
-                </span>
-              ) : (
-                <span>Nenhum documento assinado anexado ainda.</span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              {selectedFile && (
                 <Button
                   type="button"
-                  variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedFile(null)}
-                  disabled={uploading}
-                  className="text-xs text-slate-600 hover:text-slate-900"
+                  onClick={handleSaveDataInauguracao}
+                  disabled={
+                    savingDataInauguracao ||
+                    dataInauguracao ===
+                      (contrato.data_inauguracao
+                        ? formatDateInput(contrato.data_inauguracao)
+                        : contrato.data_inicio
+                          ? formatDateInput(contrato.data_inicio)
+                          : '')
+                  }
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold h-8 gap-1.5 shadow-sm"
                 >
-                  Cancelar seleção
+                  {savingDataInauguracao ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  Salvar Data
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Main Upload Card */
+        <Card className="border-slate-200 bg-white shadow-xs rounded-xl overflow-hidden">
+          <CardHeader className="p-6 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                <FileCheck2 className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Documento Assinado
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500 mt-0.5">
+                  Faça o upload do documento assinado (PDF ou imagem) para este contrato.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-6 space-y-6">
+            {/* Seção com Datas: Envio e Assinatura */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Campo Data de Envio */}
+              <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
+                <div className="flex flex-col justify-between gap-4 h-full">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="data_envio_input"
+                      className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
+                    >
+                      <Send className="w-3.5 h-3.5 text-purple-600" />
+                      Data de Envio
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="data_envio_input"
+                        type="date"
+                        value={dataEnvio}
+                        onChange={(e) => setDataEnvio(e.target.value)}
+                        className="text-xs h-9 bg-white"
+                      />
+                      {dataEnvio && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDataEnvio('')}
+                          disabled={savingDataEnvio}
+                          className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
+                          title="Limpar data"
+                        >
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Data em que o contrato foi enviado para o franqueado.
+                    </p>
+                  </div>
+
+                  {/* Botão de salvar data de envio individualmente */}
+                  <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
+                    <div className="text-xs text-slate-500">
+                      {contrato.data_envio ? (
+                        <span>
+                          Gravada:{' '}
+                          <strong className="text-slate-800">
+                            {formatDateBR(contrato.data_envio)}
+                          </strong>
+                        </span>
+                      ) : (
+                        <span className="italic text-slate-400">Não registrada</span>
+                      )}
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSaveDataEnvio}
+                      disabled={
+                        savingDataEnvio ||
+                        uploading ||
+                        dataEnvio ===
+                          (contrato.data_envio ? formatDateInput(contrato.data_envio) : '')
+                      }
+                      className="text-xs font-semibold h-8 gap-1.5 border-slate-300 hover:bg-slate-100"
+                    >
+                      {savingDataEnvio ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5" />
+                      )}
+                      Salvar Data
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Campo Data de Assinatura */}
+              <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
+                <div className="flex flex-col justify-between gap-4 h-full">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="data_assinatura_input"
+                      className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                      Data de Assinatura
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="data_assinatura_input"
+                        type="date"
+                        value={dataAssinatura}
+                        onChange={(e) => setDataAssinatura(e.target.value)}
+                        className="text-xs h-9 bg-white"
+                      />
+                      {dataAssinatura && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDataAssinatura('')}
+                          disabled={savingDataAssinatura}
+                          className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
+                          title="Limpar data"
+                        >
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Data em que o documento foi assinado pelas partes.
+                    </p>
+                  </div>
+
+                  {/* Botão de salvar data individualmente */}
+                  <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
+                    <div className="text-xs text-slate-500">
+                      {contrato.data_assinatura ? (
+                        <span>
+                          Gravada:{' '}
+                          <strong className="text-slate-800">
+                            {formatDateBR(contrato.data_assinatura)}
+                          </strong>
+                        </span>
+                      ) : (
+                        <span className="italic text-slate-400">Não registrada</span>
+                      )}
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSaveDataAssinatura}
+                      disabled={
+                        savingDataAssinatura ||
+                        uploading ||
+                        dataAssinatura ===
+                          (contrato.data_assinatura
+                            ? formatDateInput(contrato.data_assinatura)
+                            : '')
+                      }
+                      className="text-xs font-semibold h-8 gap-1.5 border-slate-300 hover:bg-slate-100"
+                    >
+                      {savingDataAssinatura ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5" />
+                      )}
+                      Salvar Data
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Se já houver arquivo anexado no PocketBase */}
+            {contrato.documento_assinado && (
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      {isImageFile ? (
+                        <ImageIcon className="w-5 h-5" />
+                      ) : (
+                        <FileText className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-emerald-950 truncate max-w-sm">
+                          {contrato.documento_assinado}
+                        </span>
+                        <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          Anexado
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-700 mt-0.5">
+                        Arquivo disponível no servidor
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="border-emerald-300 text-emerald-900 hover:bg-emerald-100/80 text-xs font-semibold gap-1.5 h-8"
+                    >
+                      <a
+                        href={existingFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Abrir arquivo em nova aba"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Visualizar / Baixar
+                      </a>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setConfirmRemoveOpen(true)}
+                      disabled={uploading || removingFile}
+                      className="text-slate-400 hover:text-red-600 h-8 w-8"
+                      title="Remover anexo atual"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hidden File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,application/pdf,image/png,image/jpeg,image/jpg,image/webp"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
+
+            {/* Drag & Drop Area */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all flex flex-col items-center justify-center gap-3 ${
+                isDragOver
+                  ? 'border-amber-500 bg-amber-50/50 scale-[1.005]'
+                  : selectedFile
+                    ? 'border-amber-400 bg-amber-50/20'
+                    : 'border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400'
+              }`}
+            >
+              <div
+                className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${
+                  selectedFile
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+                }`}
+              >
+                {selectedFile ? <FileCheck2 className="w-6 h-6" /> : <Upload className="w-6 h-6" />}
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-slate-800">
+                  {selectedFile ? (
+                    <span>
+                      Arquivo selecionado:{' '}
+                      <strong className="text-amber-700">{selectedFile.name}</strong>
+                    </span>
+                  ) : contrato.documento_assinado ? (
+                    'Clique ou arraste um novo arquivo para substituir o atual'
+                  ) : (
+                    'Clique para selecionar ou arraste o arquivo até aqui'
+                  )}
+                </p>
+                <p className="text-xs text-slate-400">
+                  Suporta PDF, PNG, JPG, JPEG ou WEBP (até 20 MB)
+                </p>
+              </div>
+
+              {selectedFile ? (
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-300 text-xs text-amber-900 font-medium">
+                  <span>{selectedFile.name}</span>
+                  <span className="text-amber-700">({formatFileSize(selectedFile.size)})</span>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    fileInputRef.current?.click()
+                  }}
+                  className="text-xs font-semibold mt-1"
+                >
+                  Selecionar do computador
                 </Button>
               )}
-
-              <Button
-                type="button"
-                onClick={handleSaveDocument}
-                disabled={!selectedFile || uploading}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-4 h-9 shadow-sm gap-2 w-full sm:w-auto"
-              >
-                {uploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
-                {contrato.documento_assinado
-                  ? 'Salvar e Substituir Arquivo'
-                  : 'Anexar Documento Assinado'}
-              </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+
+            {/* Action Footer: Anexar / Salvar arquivo */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <div className="text-xs text-slate-500">
+                {contrato.documento_assinado ? (
+                  <span>
+                    O contrato possui documento assinado.{' '}
+                    {selectedFile ? 'Salve para substituir pelo novo arquivo.' : ''}
+                  </span>
+                ) : (
+                  <span>Nenhum documento assinado anexado ainda.</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {selectedFile && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedFile(null)}
+                    disabled={uploading}
+                    className="text-xs text-slate-600 hover:text-slate-900"
+                  >
+                    Cancelar seleção
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  onClick={handleSaveDocument}
+                  disabled={!selectedFile || uploading}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-4 h-9 shadow-sm gap-2 w-full sm:w-auto"
+                >
+                  {uploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {contrato.documento_assinado
+                    ? 'Salvar e Substituir Arquivo'
+                    : 'Anexar Documento Assinado'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Confirmation modal to remove attached document */}
       <Dialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>

@@ -595,63 +595,97 @@ export default function FranqueadoDetail() {
                       <span className="text-base font-bold text-slate-900">{contrato.tipo}</span>
                       <StatusBadge status={contrato.status} />
 
-                      {/* Expiry Pill */}
-                      {expiry?.isExpired ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 px-2.5 py-0.5 rounded-full shadow-xs">
-                          <Clock className="w-3.5 h-3.5" />
-                          Vencido
-                        </span>
-                      ) : expiry?.isAlert ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-300 animate-pulse">
-                          <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                          Faltam {expiry.monthsRemaining} meses
-                        </span>
-                      ) : null}
+                      {/* Expiry Pill (apenas para contratos não-inauguração com vencimento) */}
+                      {contrato.tipo !== 'Inauguração' && (
+                        <>
+                          {expiry?.isExpired ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 px-2.5 py-0.5 rounded-full shadow-xs">
+                              <Clock className="w-3.5 h-3.5" />
+                              Vencido
+                            </span>
+                          ) : expiry?.isAlert ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-300 animate-pulse">
+                              <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                              Faltam {expiry.monthsRemaining} meses
+                            </span>
+                          ) : null}
+                        </>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-                      <div>
-                        <span className="text-slate-400">Vigência: </span>
-                        <span
-                          className={`font-semibold tabular-nums ${
-                            expiry?.isExpired || expiry?.isAlert ? 'text-red-700' : 'text-slate-700'
-                          }`}
-                        >
-                          {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
-                          {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
-                        </span>
-                      </div>
-
-                      {contrato.data_assinatura && (
-                        <div className="text-emerald-700 flex items-center gap-1 font-medium">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                          Assinado em {formatDateBR(contrato.data_assinatura)}
+                      {contrato.tipo === 'Inauguração' ? (
+                        <div>
+                          <span className="text-slate-400">Data de Inauguração: </span>
+                          <span className="font-semibold tabular-nums text-slate-800">
+                            {contrato.data_inauguracao || contrato.data_inicio
+                              ? formatDateBR(contrato.data_inauguracao || contrato.data_inicio)
+                              : 'Não informada'}
+                          </span>
                         </div>
-                      )}
+                      ) : (
+                        <>
+                          <div>
+                            <span className="text-slate-400">Vigência: </span>
+                            <span
+                              className={`font-semibold tabular-nums ${
+                                expiry?.isExpired || expiry?.isAlert
+                                  ? 'text-red-700'
+                                  : 'text-slate-700'
+                              }`}
+                            >
+                              {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
+                              {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
+                            </span>
+                          </div>
 
-                      {doc?.data_envio && (
-                        <div className="text-slate-500 flex items-center gap-1">
-                          <CheckCircle className="w-3.5 h-3.5 text-purple-600" />
-                          Enviado em {formatDateBR(doc.data_envio)}
-                        </div>
+                          {contrato.data_assinatura && (
+                            <div className="text-emerald-700 flex items-center gap-1 font-medium">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              Assinado em {formatDateBR(contrato.data_assinatura)}
+                            </div>
+                          )}
+
+                          {doc?.data_envio && (
+                            <div className="text-slate-500 flex items-center gap-1">
+                              <CheckCircle className="w-3.5 h-3.5 text-purple-600" />
+                              Enviado em {formatDateBR(doc.data_envio)}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
 
                   {/* Right: Actions */}
                   <div className="flex items-center gap-2 self-end md:self-center">
-                    <Button
-                      asChild
-                      size="sm"
-                      className="bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs gap-1.5"
-                    >
-                      <Link to={`/documento/${contrato.id}`}>
-                        <FileText className="w-3.5 h-3.5 text-amber-400" />
-                        {contrato.documento_assinado
-                          ? 'Ver / Alterar Documento'
-                          : 'Anexar Documento Assinado'}
-                      </Link>
-                    </Button>
+                    {contrato.tipo === 'Inauguração' ? (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs gap-1.5"
+                      >
+                        <Link to={`/documento/${contrato.id}`}>
+                          <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                          {contrato.data_inauguracao || contrato.data_inicio
+                            ? 'Editar Data'
+                            : 'Lançar Data'}
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs gap-1.5"
+                      >
+                        <Link to={`/documento/${contrato.id}`}>
+                          <FileText className="w-3.5 h-3.5 text-amber-400" />
+                          {contrato.documento_assinado
+                            ? 'Ver / Alterar Documento'
+                            : 'Anexar Documento Assinado'}
+                        </Link>
+                      </Button>
+                    )}
 
                     <Button
                       variant="ghost"

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Clock, Plus, FileCheck2, Paperclip } from 'lucide-react'
+import { AlertTriangle, Clock, Plus, FileCheck2, Paperclip, Calendar, Pencil } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { computeContractExpiry, type Contrato, type ContractType } from '@/types'
 import { formatDateBR } from '@/lib/formatters'
@@ -29,6 +29,62 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
             Criar
           </Link>
         </Button>
+      </div>
+    )
+  }
+
+  const isInauguracao = tipo === 'Inauguração'
+
+  if (isInauguracao) {
+    const rawInaugDate =
+      contrato.data_inauguracao ||
+      contrato.data_inicio ||
+      contrato.expand?.franqueado?.data_inauguracao
+    const hasInaugDate = Boolean(rawInaugDate)
+
+    return (
+      <div className="p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-all shadow-xs">
+        <div className="flex items-center justify-between gap-1 mb-1.5">
+          <StatusBadge status={contrato.status} />
+        </div>
+
+        <div className="space-y-0.5">
+          <div className="text-[11px] font-medium leading-tight text-slate-600">
+            <span>Inauguração: </span>
+            {hasInaugDate ? (
+              <span className="tabular-nums font-semibold text-slate-900">
+                {formatDateBR(rawInaugDate)}
+              </span>
+            ) : (
+              <span className="text-slate-400 italic">Não informada</span>
+            )}
+          </div>
+        </div>
+
+        {/* Action link específico para Inauguração (sem Anexado / Sem anexo) */}
+        <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
+            <Calendar className="w-3 h-3 text-amber-500" />
+            {hasInaugDate ? 'Data gravada' : 'Sem data'}
+          </span>
+
+          <Link
+            to={`/documento/${contrato.id}`}
+            className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-amber-600 transition-colors group"
+          >
+            {hasInaugDate ? (
+              <>
+                <Pencil className="w-3 h-3 text-slate-400 group-hover:text-amber-600 transition-colors" />
+                <span>Editar data</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-3 h-3 text-amber-500 group-hover:text-amber-600 transition-colors" />
+                <span className="text-amber-700 group-hover:text-amber-800">Lançar data</span>
+              </>
+            )}
+          </Link>
+        </div>
       </div>
     )
   }
