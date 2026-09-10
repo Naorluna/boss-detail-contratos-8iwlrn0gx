@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
-import { Users, FileText, LogOut, Menu, X, PlusCircle, Shield, Sparkles } from 'lucide-react'
+import { Users, FileText, LogOut, Menu, X, PlusCircle, Shield, Sparkles, Files } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -42,7 +42,16 @@ export default function Layout() {
       label: 'Contratos',
       path: '/',
       icon: FileText,
-      active: location.pathname === '/' || location.pathname.startsWith('/contratos'),
+      active:
+        location.pathname === '/' ||
+        (location.pathname.startsWith('/contratos') &&
+          !location.pathname.startsWith('/versao-contratos')),
+    },
+    {
+      label: 'Versão dos Contratos',
+      path: '/versao-contratos',
+      icon: Files,
+      active: location.pathname.startsWith('/versao-contratos'),
     },
   ]
 
@@ -55,6 +64,7 @@ export default function Layout() {
     if (location.pathname.includes('/editar')) return 'Editar Franquia'
     if (location.pathname.startsWith('/franqueados/')) return 'Detalhes do Franqueado'
     if (location.pathname.startsWith('/contratos/novo')) return 'Novo Contrato'
+    if (location.pathname.startsWith('/versao-contratos')) return 'Versão dos Contratos'
     if (location.pathname.startsWith('/documento/')) return 'Documento Assinado'
     return 'Boss Detail'
   }

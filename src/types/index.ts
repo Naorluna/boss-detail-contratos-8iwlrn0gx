@@ -53,6 +53,14 @@ export interface Documento extends RecordModel {
   }
 }
 
+export type ModeloTipo = 'COF' | 'Pre-Contrato' | 'Contrato'
+
+export interface ModeloContrato extends RecordModel {
+  tipo: ModeloTipo
+  titulo?: string
+  texto?: string
+}
+
 export interface ContractExpiryInfo {
   isExpired: boolean
   isAlert: boolean

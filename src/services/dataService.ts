@@ -1,5 +1,14 @@
 import pb from '@/lib/pocketbase/client'
-import type { Franqueado, Socio, Contrato, Documento, ContractType, ContractStatus } from '@/types'
+import type {
+  Franqueado,
+  Socio,
+  Contrato,
+  Documento,
+  ContractType,
+  ContractStatus,
+  ModeloContrato,
+  ModeloTipo,
+} from '@/types'
 import { STANDARD_DOCUMENT_TEMPLATE } from '@/types'
 
 export const sociosService = {
@@ -208,5 +217,35 @@ export const documentosService = {
 
   async delete(id: string): Promise<boolean> {
     return await pb.collection('documentos').delete(id)
+  },
+}
+
+export const modelosContratoService = {
+  async getAll(): Promise<ModeloContrato[]> {
+    return await pb.collection('modelos_contrato').getFullList<ModeloContrato>({
+      sort: 'tipo',
+    })
+  },
+
+  async getByTipo(tipo: ModeloTipo): Promise<ModeloContrato | null> {
+    try {
+      return await pb
+        .collection('modelos_contrato')
+        .getFirstListItem<ModeloContrato>(`tipo = "${tipo}"`)
+    } catch (_) {
+      return null
+    }
+  },
+
+  async update(id: string, data: Partial<ModeloContrato>): Promise<ModeloContrato> {
+    return await pb.collection('modelos_contrato').update<ModeloContrato>(id, data)
+  },
+
+  async create(data: {
+    tipo: ModeloTipo
+    titulo?: string
+    texto?: string
+  }): Promise<ModeloContrato> {
+    return await pb.collection('modelos_contrato').create<ModeloContrato>(data)
   },
 }

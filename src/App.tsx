@@ -15,6 +15,7 @@ import FranqueadoDetail from '@/pages/FranqueadoDetail'
 import FranqueadoForm from '@/pages/FranqueadoForm'
 import ContratoForm from '@/pages/ContratoForm'
 import DocumentoEditor from '@/pages/DocumentoEditor'
+import VersaoContratos from '@/pages/VersaoContratos'
 import NotFound from '@/pages/NotFound'
 
 const App = () => (
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/franqueados/:id" element={<FranqueadoDetail />} />
             <Route path="/franqueados/:id/editar" element={<FranqueadoForm />} />
             <Route path="/contratos/novo" element={<ContratoForm />} />
+            <Route path="/versao-contratos" element={<VersaoContratos />} />
             <Route path="/documento/:contratoId" element={<DocumentoEditor />} />
           </Route>
 
