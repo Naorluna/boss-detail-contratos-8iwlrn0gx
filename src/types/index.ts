@@ -1,6 +1,6 @@
 import type { RecordModel } from 'pocketbase'
 
-export type ContractType = 'Recebimento da COF' | 'Pré-Contrato' | 'Contrato'
+export type ContractType = 'Recebimento da COF' | 'Pré-Contrato' | 'Contrato' | 'Inauguração'
 
 export type ContractStatus = 'Pendente' | 'Em Elaboração' | 'Enviado' | 'Assinado' | 'Vencido'
 

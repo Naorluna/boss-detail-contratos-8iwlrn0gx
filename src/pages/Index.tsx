@@ -165,51 +165,13 @@ export default function Index() {
     })
   }, [franqueados, contratos, searchTerm, statusFilter, tipoFilter])
 
-  // Filtered rows for Contratos View
-  const filteredContratos = useMemo(() => {
-    return contratos.filter((c) => {
-      const franqueado = franqueados.find((f) => f.id === c.franqueado)
-      const search = searchTerm.toLowerCase().trim()
-      const matchesSearch =
-        !search ||
-        (franqueado && franqueado.nome.toLowerCase().includes(search)) ||
-        (franqueado?.cidade && franqueado.cidade.toLowerCase().includes(search)) ||
-        c.tipo.toLowerCase().includes(search)
-
-      if (!matchesSearch) return false
-
-      if (statusFilter !== 'todos') {
-        if (statusFilter === 'Vencido') {
-          const expiry = computeContractExpiry(c.data_fim, c.status)
-          if (!expiry.isExpired) return false
-        } else if (c.status !== statusFilter) {
-          return false
-        }
-      }
-
-      if (tipoFilter !== 'todos' && c.tipo !== tipoFilter) {
-        return false
-      }
-
-      return true
-    })
-  }, [contratos, franqueados, searchTerm, statusFilter, tipoFilter])
-
-  // Pagination slice
+  // Pagination slice (ambas as visões paginam sobre filteredFranqueados)
   const paginatedFranqueados = useMemo(() => {
     const start = (currentPage - 1) * pageSize
     return filteredFranqueados.slice(start, start + pageSize)
   }, [filteredFranqueados, currentPage])
 
-  const paginatedContratos = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return filteredContratos.slice(start, start + pageSize)
-  }, [filteredContratos, currentPage])
-
-  const totalPages =
-    viewMode === 'franqueados'
-      ? Math.max(1, Math.ceil(filteredFranqueados.length / pageSize))
-      : Math.max(1, Math.ceil(filteredContratos.length / pageSize))
+  const totalPages = Math.max(1, Math.ceil(filteredFranqueados.length / pageSize))
 
   const toggleViewMode = (mode: 'franqueados' | 'contratos') => {
     setCurrentPage(1)
@@ -359,7 +321,8 @@ export default function Index() {
                   <SelectItem value="Recebimento da COF">Recebimento da COF</SelectItem>
                   <SelectItem value="Pré-Contrato">Pré-Contrato</SelectItem>
                   <SelectItem value="Contrato">Contrato</SelectItem>
-                </SelectContent>
+                  <SelectItem value="Inauguração">Inauguração</SelectItem>
+                </SelectContent>{' '}
               </Select>
             </div>
 
@@ -434,10 +397,11 @@ export default function Index() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                      <th className="py-3.5 px-4 w-[22%]">Franqueados</th>
-                      <th className="py-3.5 px-4 w-[20%]">Recebimento da COF</th>
-                      <th className="py-3.5 px-4 w-[20%]">Pré-Contrato</th>
-                      <th className="py-3.5 px-4 w-[20%]">Contrato</th>
+                      <th className="py-3.5 px-4 min-w-[200px]">Franqueados</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Recebimento da COF</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Pré-Contrato</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Contrato</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Inauguração</th>
                       <th className="py-3.5 px-4 whitespace-nowrap">Vigência</th>
                       <th className="py-3.5 px-4 whitespace-nowrap">Alerta de Renovação</th>
                       <th className="py-3.5 px-4 text-right w-16">Ações</th>
@@ -449,9 +413,11 @@ export default function Index() {
                       const cofContract = fContracts['Recebimento da COF']
                       const preContract = fContracts['Pré-Contrato']
                       const mainContract = fContracts['Contrato']
+                      const inaugContract = fContracts['Inauguração']
 
                       // Determinar vigência e alerta a partir do Contrato Principal (ou contrato ativo com vigência)
-                      const targetContract = mainContract || preContract || cofContract
+                      const targetContract =
+                        mainContract || preContract || cofContract || inaugContract
                       const hasVigencia =
                         targetContract && (targetContract.data_inicio || targetContract.data_fim)
                       const expiry = targetContract
@@ -505,7 +471,16 @@ export default function Index() {
                             />
                           </td>
 
-                          {/* 5. Vigência */}
+                          {/* 5. Inauguração */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Inauguração"
+                              contrato={inaugContract}
+                            />
+                          </td>
+
+                          {/* 6. Vigência */}
                           <td className="py-3.5 px-4 align-top tabular-nums text-slate-700 whitespace-nowrap">
                             {hasVigencia ? (
                               <div>
@@ -529,7 +504,7 @@ export default function Index() {
                             )}
                           </td>
 
-                          {/* 6. Alerta de Renovação */}
+                          {/* 7. Alerta de Renovação */}
                           <td className="py-3.5 px-4 align-top whitespace-nowrap">
                             {expiry?.isExpired ? (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-200">
@@ -607,6 +582,7 @@ export default function Index() {
                   const cofContract = fContracts['Recebimento da COF']
                   const preContract = fContracts['Pré-Contrato']
                   const mainContract = fContracts['Contrato']
+                  const inaugContract = fContracts['Inauguração']
 
                   return (
                     <div key={f.id} className="p-4 space-y-3 bg-white">
@@ -675,6 +651,17 @@ export default function Index() {
                             contrato={mainContract}
                           />
                         </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Inauguração
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Inauguração"
+                            contrato={inaugContract}
+                          />
+                        </div>
                       </div>
                     </div>
                   )
@@ -685,105 +672,308 @@ export default function Index() {
         </div>
       )}
 
-      {/* VIEW: VISÃO POR CONTRATO */}
+      {/* VIEW: VISÃO POR CONTRATO (Linha = Franqueado, com 4 colunas de tipos) */}
       {viewMode === 'contratos' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
           {loading ? (
             <div className="p-6 space-y-4">
               <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
             </div>
-          ) : filteredContratos.length === 0 ? (
+          ) : filteredFranqueados.length === 0 ? (
             <div className="text-center py-12 px-4 space-y-3">
               <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
-              <h3 className="text-base font-bold text-slate-800">Nenhum contrato encontrado</h3>
+              <h3 className="text-base font-bold text-slate-800">
+                {searchTerm || statusFilter !== 'todos' || tipoFilter !== 'todos'
+                  ? 'Nenhum resultado para os filtros aplicados'
+                  : 'Nenhum contrato cadastrado'}
+              </h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Não existem contratos correspondentes aos filtros selecionados.
+                {searchTerm || statusFilter !== 'todos' || tipoFilter !== 'todos'
+                  ? 'Tente ajustar sua busca ou limpar os filtros para visualizar outros contratos.'
+                  : 'Cadastre franqueados para visualizar os contratos organizados por unidade.'}
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                    <th className="py-3.5 px-4">Franqueado</th>
-                    <th className="py-3.5 px-4">Tipo de Contrato</th>
-                    <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4">Vigência</th>
-                    <th className="py-3.5 px-4">Alerta de Renovação</th>
-                    <th className="py-3.5 px-4 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {paginatedContratos.map((c) => {
-                    const franqueado = franqueados.find((f) => f.id === c.franqueado)
-                    const expiry = computeContractExpiry(c.data_fim, c.status)
+            <>
+              {/* Desktop Table (>= 1024px) */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                      <th className="py-3.5 px-4 min-w-[200px]">Franqueados</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Recebimento da COF</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Pré-contrato</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Contrato</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Inauguração</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Vigência</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Alerta de Renovação</th>
+                      <th className="py-3.5 px-4 text-right w-16">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedFranqueados.map((f) => {
+                      const fContracts = contractsByFranqueado.get(f.id) || {}
+                      const cofContract = fContracts['Recebimento da COF']
+                      const preContract = fContracts['Pré-Contrato']
+                      const mainContract = fContracts['Contrato']
+                      const inaugContract = fContracts['Inauguração']
 
-                    return (
-                      <tr
-                        key={c.id}
-                        className={`hover:bg-slate-50 transition-colors ${
-                          expiry.isExpired ? 'bg-red-50/40' : expiry.isAlert ? 'bg-amber-50/30' : ''
-                        }`}
-                      >
-                        <td className="py-3 px-4 font-semibold text-slate-900">
-                          {franqueado ? (
+                      // Determinar vigência e alerta a partir do Contrato Principal (ou contrato ativo com vigência)
+                      const targetContract =
+                        mainContract || preContract || cofContract || inaugContract
+                      const hasVigencia =
+                        targetContract && (targetContract.data_inicio || targetContract.data_fim)
+                      const expiry = targetContract
+                        ? computeContractExpiry(targetContract.data_fim, targetContract.status)
+                        : null
+
+                      return (
+                        <tr key={f.id} className="hover:bg-slate-50/70 transition-colors group">
+                          {/* 1. Franqueados */}
+                          <td className="py-3.5 px-4 align-top">
                             <Link
-                              to={`/franqueados/${franqueado.id}`}
-                              className="hover:text-amber-600 transition-colors"
+                              to={`/franqueados/${f.id}`}
+                              className="font-bold text-slate-900 text-sm hover:text-amber-600 transition-colors block"
                             >
-                              {franqueado.nome}
+                              {f.nome}
                             </Link>
-                          ) : (
-                            '—'
-                          )}
-                          <p className="text-[11px] text-slate-400 font-normal">
-                            {franqueado?.cidade ? `${franqueado.cidade}/${franqueado.estado}` : ''}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4 font-medium text-slate-800">{c.tipo}</td>
-                        <td className="py-3 px-4">
-                          <StatusBadge status={c.status} />
-                        </td>
-                        <td className="py-3 px-4 tabular-nums text-slate-700">
-                          {c.data_inicio ? formatDateBR(c.data_inicio) : '—'} a{' '}
-                          {c.data_fim ? formatDateBR(c.data_fim) : '—'}
-                        </td>
-                        <td className="py-3 px-4">
-                          {expiry.isExpired ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-200">
-                              <Clock className="w-3 h-3" />
-                              Contrato Vencido
-                            </span>
-                          ) : expiry.isAlert ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-300 animate-pulse">
-                              <AlertTriangle className="w-3 h-3 text-red-600" />
-                              Faltam {expiry.monthsRemaining} meses
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs">Regular</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <Button
-                            asChild
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs font-semibold"
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {f.cidade ? `${f.cidade}/${f.estado || 'BR'}` : 'Local não informado'}
+                            </p>
+                            {f.responsavel && (
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                Sócio: <span className="text-slate-600">{f.responsavel}</span>
+                              </p>
+                            )}
+                          </td>
+
+                          {/* 2. Recebimento da COF */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Recebimento da COF"
+                              contrato={cofContract}
+                            />
+                          </td>
+
+                          {/* 3. Pré-contrato */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Pré-Contrato"
+                              contrato={preContract}
+                            />
+                          </td>
+
+                          {/* 4. Contrato */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Contrato"
+                              contrato={mainContract}
+                            />
+                          </td>
+
+                          {/* 5. Inauguração */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Inauguração"
+                              contrato={inaugContract}
+                            />
+                          </td>
+
+                          {/* 6. Vigência */}
+                          <td className="py-3.5 px-4 align-top tabular-nums text-slate-700 whitespace-nowrap">
+                            {hasVigencia ? (
+                              <div>
+                                <span className="font-medium text-slate-800">
+                                  {targetContract.data_inicio
+                                    ? formatDateBR(targetContract.data_inicio)
+                                    : '—'}{' '}
+                                  a{' '}
+                                  {targetContract.data_fim
+                                    ? formatDateBR(targetContract.data_fim)
+                                    : '—'}
+                                </span>
+                                {targetContract !== mainContract && (
+                                  <p className="text-[10px] text-slate-400 font-normal">
+                                    Ref: {targetContract.tipo}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          {/* 7. Alerta de Renovação */}
+                          <td className="py-3.5 px-4 align-top whitespace-nowrap">
+                            {expiry?.isExpired ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-200">
+                                <Clock className="w-3 h-3" />
+                                Contrato Vencido
+                              </span>
+                            ) : expiry?.isAlert ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-300 animate-pulse">
+                                <AlertTriangle className="w-3 h-3 text-red-600" />
+                                Faltam {expiry.monthsRemaining} meses
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">Regular</span>
+                            )}
+                          </td>
+
+                          {/* Ações */}
+                          <td className="py-3.5 px-4 text-right align-top">
+                            <div className="flex items-center justify-end gap-1">
+                              {mainContract && (
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs font-semibold text-slate-700 hover:text-slate-900"
+                                >
+                                  <Link to={`/documento/${mainContract.id}`}>Gerenciar</Link>
+                                </Button>
+                              )}
+
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-slate-700"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44 text-xs">
+                                  <DropdownMenuItem
+                                    onClick={() => navigate(`/franqueados/${f.id}`)}
+                                  >
+                                    <Eye className="w-3.5 h-3.5 mr-2" />
+                                    Ver detalhes
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => navigate(`/contratos/novo?franqueado=${f.id}`)}
+                                  >
+                                    <PlusCircle className="w-3.5 h-3.5 mr-2" />
+                                    Novo contrato
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => navigate(`/franqueados/${f.id}/editar`)}
+                                  >
+                                    Editar franqueado
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile / Tablet Stacked Cards (< 1024px) */}
+              <div className="lg:hidden divide-y divide-slate-200">
+                {paginatedFranqueados.map((f) => {
+                  const fContracts = contractsByFranqueado.get(f.id) || {}
+                  const cofContract = fContracts['Recebimento da COF']
+                  const preContract = fContracts['Pré-Contrato']
+                  const mainContract = fContracts['Contrato']
+                  const inaugContract = fContracts['Inauguração']
+
+                  return (
+                    <div key={f.id} className="p-4 space-y-3 bg-white">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <Link
+                            to={`/franqueados/${f.id}`}
+                            className="font-bold text-slate-900 text-base hover:text-amber-600 block"
                           >
-                            <Link to={`/documento/${c.id}`}>
-                              Gerenciar
-                              <ExternalLink className="w-3 h-3 ml-1" />
-                            </Link>
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                            {f.nome}
+                          </Link>
+                          <p className="text-xs text-slate-500">
+                            {f.cidade ? `${f.cidade}/${f.estado || 'BR'}` : 'Local não informado'} •
+                            Sócio: {f.responsavel || '—'}
+                          </p>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/franqueados/${f.id}`)}>
+                              Ver detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => navigate(`/contratos/novo?franqueado=${f.id}`)}
+                            >
+                              Novo contrato
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Recebimento da COF
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Recebimento da COF"
+                            contrato={cofContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Pré-contrato
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Pré-Contrato"
+                            contrato={preContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Contrato
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Contrato"
+                            contrato={mainContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Inauguração
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Inauguração"
+                            contrato={inaugContract}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       )}

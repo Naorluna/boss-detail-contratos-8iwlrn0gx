@@ -187,6 +187,7 @@ export default function ContratoForm() {
                     <SelectItem value="Recebimento da COF">Recebimento da COF</SelectItem>
                     <SelectItem value="Pré-Contrato">Pré-Contrato</SelectItem>
                     <SelectItem value="Contrato">Contrato</SelectItem>
+                    <SelectItem value="Inauguração">Inauguração</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

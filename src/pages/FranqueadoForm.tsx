@@ -238,7 +238,7 @@ export default function FranqueadoForm() {
 
         toast({
           title: 'Franqueado cadastrado com sucesso!',
-          description: `A unidade "${nome}" foi criada com os 3 contratos padrão configurados.`,
+          description: `A unidade "${nome}" foi criada com os 4 contratos padrão configurados.`,
         })
         navigate(`/franqueados/${created.id}`)
       }
@@ -295,7 +295,7 @@ export default function FranqueadoForm() {
               <CardDescription className="text-xs text-slate-500">
                 {isEditing
                   ? 'Atualize os dados cadastrais da unidade franqueada'
-                  : 'Preencha os dados da unidade. Os 3 contratos serão criados automaticamente.'}
+                  : 'Preencha os dados da unidade. Os 4 contratos serão criados automaticamente.'}
               </CardDescription>
             </div>
           </div>

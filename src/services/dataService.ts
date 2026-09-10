@@ -56,13 +56,21 @@ export const franqueadosService = {
       }
     }
 
-    // Automatically create the 3 standard contracts for this new franchisee
-    const contractTypes: ContractType[] = ['Recebimento da COF', 'Pré-Contrato', 'Contrato']
+    // Automatically create the 4 standard contracts for this new franchisee
+    const contractTypes: ContractType[] = [
+      'Recebimento da COF',
+      'Pré-Contrato',
+      'Contrato',
+      'Inauguração',
+    ]
     for (const tipo of contractTypes) {
       await pb.collection('contratos').create({
         franqueado: franqueado.id,
         tipo,
         status: 'Pendente',
+        ...(tipo === 'Inauguração' && data.data_inauguracao
+          ? { data_inicio: data.data_inauguracao }
+          : {}),
       })
     }
 

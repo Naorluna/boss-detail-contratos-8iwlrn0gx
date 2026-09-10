@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T16:43:15.604Z",
+  "generatedAt": "2026-09-10T16:50:11.235Z",
   "collections": [
     {
       "name": "users",
@@ -143,7 +143,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Recebimento da COF", "Pré-Contrato", "Contrato"]
+          "selectValues": ["Recebimento da COF", "Pré-Contrato", "Contrato", "Inauguração"]
         },
         {
           "name": "status",

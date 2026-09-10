@@ -259,7 +259,7 @@ export default function FranqueadoDetail() {
     }
   }
 
-  const allTypes: ContractType[] = ['Recebimento da COF', 'Pré-Contrato', 'Contrato']
+  const allTypes: ContractType[] = ['Recebimento da COF', 'Pré-Contrato', 'Contrato', 'Inauguração']
 
   if (loading) {
     return (
