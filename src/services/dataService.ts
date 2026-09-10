@@ -114,6 +114,7 @@ export const contratosService = {
     status: ContractStatus
     data_inicio?: string | null
     data_fim?: string | null
+    data_assinatura?: string | null
     createDocWithTemplate?: boolean
   }): Promise<Contrato> {
     const { createDocWithTemplate, ...rest } = data

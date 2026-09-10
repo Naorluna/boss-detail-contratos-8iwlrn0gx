@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T17:00:13.237Z",
+  "generatedAt": "2026-09-10T17:08:28.447Z",
   "collections": [
     {
       "name": "users",
@@ -181,6 +181,12 @@
         {
           "name": "documento_assinado",
           "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_assinatura",
+          "type": "date",
           "required": false,
           "system": false
         }

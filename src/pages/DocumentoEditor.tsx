@@ -13,14 +13,18 @@ import {
   AlertTriangle,
   Clock,
   RefreshCw,
+  Calendar,
+  Save,
   Image as ImageIcon,
 } from 'lucide-react'
 import { contratosService } from '@/services/dataService'
 import type { Contrato, Franqueado } from '@/types'
 import { computeContractExpiry } from '@/types'
-import { formatDateBR } from '@/lib/formatters'
+import { formatDateBR, formatDateInput } from '@/lib/formatters'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Dialog,
@@ -47,6 +51,10 @@ export default function DocumentoEditor() {
   const [contrato, setContrato] = useState<Contrato | null>(null)
   const [franqueado, setFranqueado] = useState<Franqueado | null>(null)
 
+  // Data de assinatura state
+  const [dataAssinatura, setDataAssinatura] = useState<string>('')
+  const [savingDataAssinatura, setSavingDataAssinatura] = useState(false)
+
   // Selected file state (before save)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -58,6 +66,7 @@ export default function DocumentoEditor() {
       const c = await contratosService.getById(contratoId)
       setContrato(c)
       setFranqueado(c.expand?.franqueado || null)
+      setDataAssinatura(c.data_assinatura ? formatDateInput(c.data_assinatura) : '')
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar contrato',
@@ -141,6 +150,34 @@ export default function DocumentoEditor() {
     }
   }
 
+  // Salvar apenas a Data de Assinatura
+  const handleSaveDataAssinatura = async () => {
+    if (!contrato) return
+    setSavingDataAssinatura(true)
+    try {
+      const payload: Partial<Contrato> = {
+        data_assinatura: dataAssinatura ? new Date(dataAssinatura).toISOString() : '',
+      }
+      const updated = await contratosService.update(contrato.id, payload)
+      setContrato(updated)
+      setDataAssinatura(updated.data_assinatura ? formatDateInput(updated.data_assinatura) : '')
+      toast({
+        title: 'Data de assinatura salva!',
+        description: dataAssinatura
+          ? `Data definida para ${formatDateBR(updated.data_assinatura)}.`
+          : 'Data de assinatura removida.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar data de assinatura',
+        description: err?.message || 'Falha ao atualizar a data.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingDataAssinatura(false)
+    }
+  }
+
   // Upload/Save document
   const handleSaveDocument = async () => {
     if (!contrato || !selectedFile) return
@@ -156,12 +193,18 @@ export default function DocumentoEditor() {
         }
       }
 
+      // Persistir também a data de assinatura se tiver sido informada
+      if (dataAssinatura) {
+        updateData.data_assinatura = new Date(dataAssinatura).toISOString()
+      }
+
       const updated = await contratosService.uploadDocumentoAssinado(
         contrato.id,
         selectedFile,
         updateData,
       )
       setContrato(updated)
+      setDataAssinatura(updated.data_assinatura ? formatDateInput(updated.data_assinatura) : '')
       setSelectedFile(null)
       toast({
         title: 'Documento assinado anexado com sucesso!',
@@ -229,11 +272,20 @@ export default function DocumentoEditor() {
     if (!contrato) return
     setUpdatingStatus(true)
     try {
-      const updated = await contratosService.update(contrato.id, {
+      const payload: Partial<Contrato> = {
         status: 'Assinado',
         data_inicio: contrato.data_inicio || new Date().toISOString(),
-      })
+      }
+      // Se ainda não tiver data_assinatura preenchida nem no form, preenche com a data de hoje por conveniência
+      if (!contrato.data_assinatura && !dataAssinatura) {
+        payload.data_assinatura = new Date().toISOString()
+      } else if (dataAssinatura) {
+        payload.data_assinatura = new Date(dataAssinatura).toISOString()
+      }
+
+      const updated = await contratosService.update(contrato.id, payload)
       setContrato(updated)
+      setDataAssinatura(updated.data_assinatura ? formatDateInput(updated.data_assinatura) : '')
       toast({
         title: 'Contrato marcado como Assinado',
         description: 'Status atualizado com sucesso.',
@@ -311,13 +363,23 @@ export default function DocumentoEditor() {
             ) : null}
           </div>
 
-          <p className="text-xs text-slate-500">
-            Vigência:{' '}
-            <span className="font-semibold text-slate-700">
-              {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
-              {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
-            </span>
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+            <p>
+              Vigência:{' '}
+              <span className="font-semibold text-slate-700">
+                {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
+                {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
+              </span>
+            </p>
+
+            {contrato.data_assinatura && (
+              <p className="flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                <Calendar className="w-3 h-3 text-emerald-600" />
+                Data de Assinatura:{' '}
+                <span className="font-bold">{formatDateBR(contrato.data_assinatura)}</span>
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Action Buttons Group (Voltar + Status Buttons) */}
@@ -382,6 +444,86 @@ export default function DocumentoEditor() {
         </CardHeader>
 
         <CardContent className="p-6 space-y-6">
+          {/* Campo Data de Assinatura */}
+          <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="space-y-1.5 flex-1 max-w-sm">
+                <Label
+                  htmlFor="data_assinatura_input"
+                  className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                  Data de Assinatura
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="data_assinatura_input"
+                    type="date"
+                    value={dataAssinatura}
+                    onChange={(e) => setDataAssinatura(e.target.value)}
+                    className="text-xs h-9 bg-white"
+                  />
+                  {dataAssinatura && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDataAssinatura('')}
+                      disabled={savingDataAssinatura}
+                      className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
+                      title="Limpar data"
+                    >
+                      Limpar
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Preencha ou altere a data em que o documento foi assinado pelas partes.
+                </p>
+              </div>
+
+              {/* Botão de salvar data individualmente */}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveDataAssinatura}
+                  disabled={
+                    savingDataAssinatura ||
+                    uploading ||
+                    dataAssinatura ===
+                      (contrato.data_assinatura ? formatDateInput(contrato.data_assinatura) : '')
+                  }
+                  className="text-xs font-semibold h-9 gap-1.5 border-slate-300 hover:bg-slate-100"
+                >
+                  {savingDataAssinatura ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  Salvar Data
+                </Button>
+              </div>
+            </div>
+
+            {contrato.data_assinatura && (
+              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                <span className="text-slate-500">
+                  Data gravada no contrato:{' '}
+                  <strong className="text-slate-800">
+                    {formatDateBR(contrato.data_assinatura)}
+                  </strong>
+                </span>
+                {dataAssinatura !== formatDateInput(contrato.data_assinatura) && (
+                  <span className="text-amber-600 font-medium text-[11px]">
+                    Alterações pendentes de salvamento
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Se já houver arquivo anexado no PocketBase */}
           {contrato.documento_assinado && (
             <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3">
