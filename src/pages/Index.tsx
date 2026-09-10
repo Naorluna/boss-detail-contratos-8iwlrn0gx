@@ -434,11 +434,13 @@ export default function Index() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                      <th className="py-3.5 px-4 w-1/4">Franqueado</th>
-                      <th className="py-3.5 px-4 w-1/4">1. Recebimento da COF</th>
-                      <th className="py-3.5 px-4 w-1/4">2. Pré-Contrato</th>
-                      <th className="py-3.5 px-4 w-1/4">3. Contrato Principal</th>
-                      <th className="py-3.5 px-4 text-right w-24">Ações</th>
+                      <th className="py-3.5 px-4 w-[22%]">Franqueados</th>
+                      <th className="py-3.5 px-4 w-[20%]">Recebimento da COF</th>
+                      <th className="py-3.5 px-4 w-[20%]">Pré-Contrato</th>
+                      <th className="py-3.5 px-4 w-[20%]">Contrato</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Vigência</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Alerta de Renovação</th>
+                      <th className="py-3.5 px-4 text-right w-16">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -448,9 +450,17 @@ export default function Index() {
                       const preContract = fContracts['Pré-Contrato']
                       const mainContract = fContracts['Contrato']
 
+                      // Determinar vigência e alerta a partir do Contrato Principal (ou contrato ativo com vigência)
+                      const targetContract = mainContract || preContract || cofContract
+                      const hasVigencia =
+                        targetContract && (targetContract.data_inicio || targetContract.data_fim)
+                      const expiry = targetContract
+                        ? computeContractExpiry(targetContract.data_fim, targetContract.status)
+                        : null
+
                       return (
                         <tr key={f.id} className="hover:bg-slate-50/70 transition-colors group">
-                          {/* Franqueado Info */}
+                          {/* 1. Franqueados */}
                           <td className="py-3.5 px-4 align-top">
                             <Link
                               to={`/franqueados/${f.id}`}
@@ -468,7 +478,7 @@ export default function Index() {
                             )}
                           </td>
 
-                          {/* 1. Recebimento da COF */}
+                          {/* 2. Recebimento da COF */}
                           <td className="py-3.5 px-4 align-top">
                             <ContractCell
                               franqueadoId={f.id}
@@ -477,7 +487,7 @@ export default function Index() {
                             />
                           </td>
 
-                          {/* 2. Pré-Contrato */}
+                          {/* 3. Pré-Contrato */}
                           <td className="py-3.5 px-4 align-top">
                             <ContractCell
                               franqueadoId={f.id}
@@ -486,13 +496,54 @@ export default function Index() {
                             />
                           </td>
 
-                          {/* 3. Contrato Principal */}
+                          {/* 4. Contrato */}
                           <td className="py-3.5 px-4 align-top">
                             <ContractCell
                               franqueadoId={f.id}
                               tipo="Contrato"
                               contrato={mainContract}
                             />
+                          </td>
+
+                          {/* 5. Vigência */}
+                          <td className="py-3.5 px-4 align-top tabular-nums text-slate-700 whitespace-nowrap">
+                            {hasVigencia ? (
+                              <div>
+                                <span className="font-medium text-slate-800">
+                                  {targetContract.data_inicio
+                                    ? formatDateBR(targetContract.data_inicio)
+                                    : '—'}{' '}
+                                  a{' '}
+                                  {targetContract.data_fim
+                                    ? formatDateBR(targetContract.data_fim)
+                                    : '—'}
+                                </span>
+                                {targetContract !== mainContract && (
+                                  <p className="text-[10px] text-slate-400 font-normal">
+                                    Ref: {targetContract.tipo}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          {/* 6. Alerta de Renovação */}
+                          <td className="py-3.5 px-4 align-top whitespace-nowrap">
+                            {expiry?.isExpired ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-200">
+                                <Clock className="w-3 h-3" />
+                                Contrato Vencido
+                              </span>
+                            ) : expiry?.isAlert ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-300 animate-pulse">
+                                <AlertTriangle className="w-3 h-3 text-red-600" />
+                                Faltam {expiry.monthsRemaining} meses
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">Regular</span>
+                            )}
                           </td>
 
                           {/* Actions */}
@@ -616,7 +667,7 @@ export default function Index() {
 
                         <div>
                           <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
-                            Contrato Principal
+                            Contrato
                           </p>
                           <ContractCell
                             franqueadoId={f.id}
