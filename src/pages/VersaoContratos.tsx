@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import {
   FileText,
   Edit3,
@@ -17,6 +17,9 @@ import {
   Info,
   RefreshCw,
   ExternalLink,
+  Upload,
+  Image as ImageIcon,
+  Trash2,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -57,7 +60,7 @@ const SUB_ABAS: SubAbaConfig[] = [
   {
     tipo: 'COF',
     label: 'COF',
-    subtitulo: 'Circular de Oferta de Franquia (Termo de Recebimento)',
+    subtitulo: 'Circular de Oferta de Franquia (Documento Oficial Completo)',
     badge: 'Obrigatório (Lei 13.966/19)',
   },
   {
@@ -73,6 +76,34 @@ const SUB_ABAS: SubAbaConfig[] = [
     badge: 'Definitivo (5 anos)',
   },
 ]
+
+// Textos padrão / seed dos anexos editáveis da COF
+const DEFAULT_ANEXO_III = `Mais Car Clube
+Bandeirantes (material de limpeza)
+Across By Madico (PPF)
+Bluetech Window films (película)
+Oitoporum (contabilidade)
+Carmob (sistema de gestão)`
+
+const DEFAULT_ANEXO_V = `Brasília – DF
+
+Boss Detail 305 Norte CNPJ: 40.351.607/0001-30 – Endereço: Q SHCN SQN 305 BLOCO B PLL, ASA NORTE – BRASÍLIA/DF
+
+Boss Detail 712 Norte CNPJ: 21.976.538/0001-06 – Endereço: QUADRA SHCGN CLR 712 BLOCO G LOJA 05
+
+Boss Detail Águas Claras CNPJ: 60.475.140/0001-48 – Endereço: Rua Jerivá lote 20 Águas Claras, Brasília – DF
+
+Boss Detail Disbrave 503 Norte CNPJ: 57.524.683/0001-01 – Endereço: SEP/Norte quadra 503, conjunto A, bloco C, Asa Norte, Brasíli – DF
+
+Boss Detail Noroeste CNPJ: 48.951.749/0001-40 – Endereço: Quadra CRNW Bloco B, lote 1, Setor Noroeste, Brasília-DF
+
+Boss Detail 303 Sul CNPJ: 21.895.332/0001-51 – Endereço: Quadra SEPN 707/907, Brasília-DF
+
+Boss Detail Sudoeste CNPJ: 54.029.174/0001-06 – Endereço: Quadra Mista Sudoeste 2 Bloco A, Lote 15, Parte A - Sudoeste, Brasília - DF, 70655-775`
+
+const DEFAULT_ANEXO_VI = `Boss Detail 716 Sul CNPJ: 46.708.680/0001-01 – Endereço: Setor SHLS 716 conjunto A Bloca A, Brasília-DF`
+
+const DEFAULT_ANEXO_VII = `A Franqueadora esclarece que não há, atualmente, qualquer pendência judicial ou qualquer questionamento que paire sobre ela, sobre a Marca e o/ou sobre o Sistema de sua propriedade.`
 
 export default function VersaoContratos() {
   const [activeTab, setActiveTab] = useState<ModeloTipo>('COF')
@@ -97,11 +128,26 @@ export default function VersaoContratos() {
     return new Date().toISOString().split('T')[0]
   })
   const [observacoesInput, setObservacoesInput] = useState<string>('')
+
+  // Campos específicos editáveis da COF
+  const [cofDataDeclaracao, setCofDataDeclaracao] = useState<string>('')
+  const [cofNomeCandidato, setCofNomeCandidato] = useState<string>('')
+  const [cofRg, setCofRg] = useState<string>('')
+  const [cofCpf, setCofCpf] = useState<string>('')
+  const [cofEndereco, setCofEndereco] = useState<string>('')
+  const [cofAnexoIiImagem, setCofAnexoIiImagem] = useState<string | null>(null)
+  const [cofAnexoIiiTexto, setCofAnexoIiiTexto] = useState<string>(DEFAULT_ANEXO_III)
+  const [cofAnexoVTexto, setCofAnexoVTexto] = useState<string>(DEFAULT_ANEXO_V)
+  const [cofAnexoViTexto, setCofAnexoViTexto] = useState<string>(DEFAULT_ANEXO_VI)
+  const [cofAnexoViiTexto, setCofAnexoViiTexto] = useState<string>(DEFAULT_ANEXO_VII)
+
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [lastGeneratedPdf, setLastGeneratedPdf] = useState<{
     filename: string
     timestamp: Date
   } | null>(null)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Carregar dados iniciais
   const loadData = async () => {
@@ -146,6 +192,74 @@ export default function VersaoContratos() {
     return franqueados.find((f) => f.id === selectedFranqueadoId) || null
   }, [franqueados, selectedFranqueadoId])
 
+  // Formatação por extenso de data para a Declaração de Recebimento
+  const formatDataDeclaracaoExtenso = (dateStr?: string): string => {
+    const d = dateStr ? new Date(`${dateStr}T12:00:00`) : new Date()
+    const dia = String(d.getDate()).padStart(2, '0')
+    const meses = [
+      'janeiro',
+      'fevereiro',
+      'março',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
+    ]
+    const mes = meses[d.getMonth()]
+    const ano = d.getFullYear()
+    return `${dia} de ${mes} de ${ano}`
+  }
+
+  // Ao selecionar um franqueado, autopreencher os campos da COF caso ainda não editados
+  useEffect(() => {
+    if (selectedFranqueado) {
+      setCofNomeCandidato(
+        (prev) => prev || selectedFranqueado.responsavel || selectedFranqueado.nome,
+      )
+      setCofCpf(
+        (prev) => prev || (selectedFranqueado.cnpj ? formatCPFOrCNPJ(selectedFranqueado.cnpj) : ''),
+      )
+      setCofEndereco(
+        (prev) =>
+          prev ||
+          (selectedFranqueado.cidade
+            ? `${selectedFranqueado.cidade} - ${selectedFranqueado.estado || 'DF'}`
+            : ''),
+      )
+      setCofDataDeclaracao((prev) => prev || formatDataDeclaracaoExtenso(dataAssinaturaInput))
+    }
+  }, [selectedFranqueado, dataAssinaturaInput])
+
+  // Lidar com upload de imagem para o Anexo II
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: 'destructive',
+        title: 'Formato inválido',
+        description: 'Por favor, selecione uma imagem PNG, JPG ou JPEG.',
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCofAnexoIiImagem(reader.result as string)
+      toast({
+        title: 'Imagem anexada!',
+        description: 'A imagem dos Balanços (Anexo II) foi carregada com sucesso.',
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
   // Substituição de variáveis no texto do modelo
   const replacePlaceholders = (templateText: string): string => {
     const hoje = new Date()
@@ -154,7 +268,28 @@ export default function VersaoContratos() {
       ? formatDateBR(dataAssinaturaInput)
       : dataHojeFormatada
 
+    const dataDeclaracaoResolvida =
+      cofDataDeclaracao.trim() || formatDataDeclaracaoExtenso(dataAssinaturaInput)
+
+    const nomeCandidatoResolvido =
+      cofNomeCandidato.trim() ||
+      selectedFranqueado?.responsavel ||
+      selectedFranqueado?.nome ||
+      '______________________________'
+
+    const rgResolvido = cofRg.trim() || '____________________'
+    const cpfResolvido =
+      cofCpf.trim() ||
+      (selectedFranqueado?.cnpj ? formatCPFOrCNPJ(selectedFranqueado.cnpj) : '____________________')
+
+    const enderecoResolvido =
+      cofEndereco.trim() ||
+      (selectedFranqueado?.cidade
+        ? `${selectedFranqueado.cidade} - ${selectedFranqueado.estado || 'DF'}`
+        : '__________________________________________________')
+
     const replacements: Record<string, string> = {
+      // Campos comuns existentes
       '{{nome_franqueado}}': selectedFranqueado?.nome || '[NOME DO FRANQUEADO]',
       '{{cnpj}}': selectedFranqueado?.cnpj
         ? formatCPFOrCNPJ(selectedFranqueado.cnpj)
@@ -171,6 +306,17 @@ export default function VersaoContratos() {
       '{{observacoes}}': observacoesInput.trim()
         ? observacoesInput.trim()
         : 'Nenhuma observação ou condição complementar registrada.',
+
+      // Campos específicos da COF
+      '{{data_declaracao}}': dataDeclaracaoResolvida,
+      '{{nome_candidato}}': nomeCandidatoResolvido,
+      '{{rg}}': rgResolvido,
+      '{{cpf}}': cpfResolvido,
+      '{{endereco}}': enderecoResolvido,
+      '{{anexo_iii_texto}}': cofAnexoIiiTexto.trim() || DEFAULT_ANEXO_III,
+      '{{anexo_v_texto}}': cofAnexoVTexto.trim() || DEFAULT_ANEXO_V,
+      '{{anexo_vi_texto}}': cofAnexoViTexto.trim() || DEFAULT_ANEXO_VI,
+      '{{anexo_vii_texto}}': cofAnexoViiTexto.trim() || DEFAULT_ANEXO_VII,
     }
 
     let result = templateText
@@ -186,7 +332,21 @@ export default function VersaoContratos() {
   const textoPrevisualizado = useMemo(() => {
     if (!modeloAtual?.texto) return ''
     return replacePlaceholders(modeloAtual.texto)
-  }, [modeloAtual?.texto, selectedFranqueado, dataAssinaturaInput, observacoesInput])
+  }, [
+    modeloAtual?.texto,
+    selectedFranqueado,
+    dataAssinaturaInput,
+    observacoesInput,
+    cofDataDeclaracao,
+    cofNomeCandidato,
+    cofRg,
+    cofCpf,
+    cofEndereco,
+    cofAnexoIiiTexto,
+    cofAnexoVTexto,
+    cofAnexoViTexto,
+    cofAnexoViiTexto,
+  ])
 
   // Abrir modal de edição do modelo da aba atual
   const handleOpenEditModelo = () => {
@@ -265,6 +425,7 @@ export default function VersaoContratos() {
         titulo,
         texto: textoPrevisualizado,
         franqueadoNome: selectedFranqueado?.nome,
+        anexoIiImagemDataUrl: cofAnexoIiImagem,
       })
 
       doc.save(filename)
@@ -304,10 +465,8 @@ export default function VersaoContratos() {
     const tipoLabel = subConfig?.label || activeTab
     const franqueadoNome = selectedFranqueado?.nome || 'sua unidade'
 
-    // Mensagem estruturada em português
-    const mensagem = `Olá, ${selectedFranqueado?.responsavel || franqueadoNome}! Segue o contrato ${tipoLabel} da unidade ${franqueadoNome} — Boss Detail. O PDF foi gerado e baixado; por gentileza verifique e anexe-o nesta conversa para darmos seguimento.`
+    const mensagem = `Olá, ${selectedFranqueado?.responsavel || franqueadoNome}! Segue o documento ${tipoLabel} da unidade ${franqueadoNome} — Boss Detail. O PDF foi gerado e baixado; por gentileza verifique e anexe-o nesta conversa para darmos seguimento.`
 
-    // Sanitizar telefone: apenas dígitos, adicionar DDI 55 se brasileiro sem DDI
     let cleanPhone = (selectedFranqueado?.telefone || '').replace(/\D/g, '')
     if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
       cleanPhone = `55${cleanPhone}`
@@ -341,13 +500,13 @@ export default function VersaoContratos() {
               variant="outline"
               className="border-amber-400/40 bg-amber-500/10 text-amber-300 text-xs font-semibold uppercase tracking-wider ml-1"
             >
-              Modelos Dinâmicos
+              Modelos Oficiais
             </Badge>
           </div>
           <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-            Gerencie e personalize os modelos contratuais da Boss Detail (COF, Pré-Contrato e
-            Contrato). O texto pode ser editado a qualquer momento e autopreenchido com os dados dos
-            franqueados para gerar PDF e envio via WhatsApp.
+            Gerencie e personalize os modelos contratuais da Boss Detail. A COF (Circular de Oferta
+            de Franquia) conta com texto oficial integral em conformidade com a Lei nº 13.966/2019,
+            com seções e anexos editáveis na geração.
           </p>
         </div>
 
@@ -469,39 +628,76 @@ export default function VersaoContratos() {
                   <div className="mb-4 p-3 bg-amber-50/60 border border-amber-200/60 rounded-lg text-xs text-amber-900">
                     <p className="font-semibold mb-1 flex items-center gap-1.5 text-amber-950">
                       <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      Variáveis inteligentes disponíveis para substituição automática:
+                      Variáveis dinâmicas da sub-aba {tab.label}:
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-2 font-mono">
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{nome_franqueado}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{cnpj}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{cidade}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{estado}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{responsavel}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{telefone}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{email}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{data_assinatura}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{data_hoje}}`}
-                      </span>
-                      <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
-                        {`{{observacoes}}`}
-                      </span>
+                      {tab.tipo === 'COF' ? (
+                        <>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{data_declaracao}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{nome_candidato}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{rg}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{cpf}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{endereco}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{anexo_ii_imagem}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{anexo_iii_texto}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{anexo_v_texto}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{anexo_vi_texto}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{anexo_vii_texto}}`}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{nome_franqueado}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{cnpj}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{cidade}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{estado}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{responsavel}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{telefone}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{email}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{data_assinatura}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{data_hoje}}`}
+                          </span>
+                          <span className="bg-white border border-amber-300 px-2 py-0.5 rounded text-amber-800 font-medium">
+                            {`{{observacoes}}`}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -555,7 +751,7 @@ export default function VersaoContratos() {
                 id="titulo-modelo"
                 value={editTitulo}
                 onChange={(e) => setEditTitulo(e.target.value)}
-                placeholder="Ex.: Recebimento da COF (Circular de Oferta de Franquia)"
+                placeholder="Ex.: Circular de Oferta de Franquia (COF)"
                 className="text-sm font-medium"
               />
             </div>
@@ -566,7 +762,8 @@ export default function VersaoContratos() {
                   Texto do Modelo Contratual
                 </Label>
                 <span className="text-[11px] text-slate-500 font-normal">
-                  Suporta placeholders como <code>{`{{nome_franqueado}}`}</code>
+                  Suporta placeholders como <code>{`{{nome_candidato}}`}</code>,{' '}
+                  <code>{`{{data_declaracao}}`}</code>
                 </span>
               </div>
               <Textarea
@@ -602,9 +799,9 @@ export default function VersaoContratos() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: QUADRO GERAR NOVO CONTRATO COM PREENCHIMENTO AUTOMÁTICO */}
+      {/* MODAL 2: QUADRO GERAR NOVO CONTRATO COM PREENCHIMENTO AUTOMÁTICO E SEÇÕES DA COF */}
       <Dialog open={isGeradorOpen} onOpenChange={setIsGeradorOpen}>
-        <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-6">
+        <DialogContent className="max-w-6xl max-h-[94vh] flex flex-col p-6">
           <DialogHeader className="border-b pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -616,8 +813,9 @@ export default function VersaoContratos() {
                     Gerar Novo Contrato — {activeSubConfig.label}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-slate-500">
-                    Selecione o franqueado para autopreencher os dados, revise a pré-visualização ao
-                    vivo e gere o PDF com envio por WhatsApp.
+                    {activeTab === 'COF'
+                      ? 'Preencha os dados da Declaração de Recebimento e os Anexos variáveis para gerar o documento oficial da COF.'
+                      : 'Selecione o franqueado para autopreencher os dados, revise a pré-visualização ao vivo e gere o PDF com envio por WhatsApp.'}
                   </DialogDescription>
                 </div>
               </div>
@@ -639,7 +837,7 @@ export default function VersaoContratos() {
                     className="text-xs font-bold text-slate-900 flex items-center gap-1.5"
                   >
                     <Building2 className="w-4 h-4 text-amber-600" />
-                    Selecione o Franqueado <span className="text-red-500">*</span>
+                    Selecione o Franqueado / Candidato <span className="text-red-500">*</span>
                   </Label>
                   <Select
                     value={selectedFranqueadoId}
@@ -662,12 +860,12 @@ export default function VersaoContratos() {
                 {selectedFranqueado ? (
                   <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2 text-xs">
                     <div className="flex items-center justify-between text-slate-700 font-semibold border-b border-slate-200/80 pb-1">
-                      <span>Dados Autopreenchidos:</span>
+                      <span>Dados da Unidade Selecionada:</span>
                       <Badge
                         variant="outline"
                         className="text-[10px] bg-white text-emerald-700 border-emerald-300"
                       >
-                        Pronto
+                        Autopreenchido
                       </Badge>
                     </div>
 
@@ -710,54 +908,296 @@ export default function VersaoContratos() {
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <span>
                       Selecione um franqueado acima para que seus dados comerciais e cadastrais
-                      sejam preenchidos automaticamente no contrato.
+                      sejam preenchidos automaticamente.
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Card Campos Extras */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="data-assinatura-input"
-                    className="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
-                  >
-                    <Calendar className="w-4 h-4 text-slate-500" />
-                    Data da Assinatura (Opcional)
-                  </Label>
-                  <Input
-                    id="data-assinatura-input"
-                    type="date"
-                    value={dataAssinaturaInput}
-                    onChange={(e) => setDataAssinaturaInput(e.target.value)}
-                    className="text-sm"
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    Substitui o placeholder <code>{`{{data_assinatura}}`}</code> no documento.
-                  </p>
-                </div>
+              {/* Se for a aba COF, mostrar campos específicos editáveis */}
+              {activeTab === 'COF' ? (
+                <>
+                  {/* Seção 1: Declaração de Recebimento */}
+                  <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                      <Label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-amber-600" />
+                        Declaração de Recebimento da COF
+                      </Label>
+                      <Badge className="text-[10px] bg-amber-200/80 text-amber-900 font-medium">
+                        Editável
+                      </Badge>
+                    </div>
 
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="observacoes-input"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Observações / Dados Complementares
-                  </Label>
-                  <Textarea
-                    id="observacoes-input"
-                    value={observacoesInput}
-                    onChange={(e) => setObservacoesInput(e.target.value)}
-                    rows={4}
-                    placeholder="Ex.: Dados da última franquia, cláusulas especiais, condições de parcelamento ou observações da praça..."
-                    className="text-xs resize-y"
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    Substitui o placeholder <code>{`{{observacoes}}`}</code>.
-                  </p>
+                    <div className="space-y-2.5">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="cof-data-declaracao"
+                          className="text-xs font-semibold text-slate-700"
+                        >
+                          Data da Declaração (Extenso)
+                        </Label>
+                        <Input
+                          id="cof-data-declaracao"
+                          value={cofDataDeclaracao}
+                          onChange={(e) => setCofDataDeclaracao(e.target.value)}
+                          placeholder="Ex.: 10 de setembro de 2026"
+                          className="text-xs bg-white"
+                        />
+                        <p className="text-[10px] text-slate-500">
+                          Preenche "Brasília, {`{{data_declaracao}}`}."
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="cof-nome-candidato"
+                          className="text-xs font-semibold text-slate-700"
+                        >
+                          Nome do Candidato
+                        </Label>
+                        <Input
+                          id="cof-nome-candidato"
+                          value={cofNomeCandidato}
+                          onChange={(e) => setCofNomeCandidato(e.target.value)}
+                          placeholder="Nome completo do candidato"
+                          className="text-xs bg-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="cof-rg" className="text-xs font-semibold text-slate-700">
+                            RG
+                          </Label>
+                          <Input
+                            id="cof-rg"
+                            value={cofRg}
+                            onChange={(e) => setCofRg(e.target.value)}
+                            placeholder="Ex.: 00.000.000-0"
+                            className="text-xs bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="cof-cpf" className="text-xs font-semibold text-slate-700">
+                            CPF / CNPJ
+                          </Label>
+                          <Input
+                            id="cof-cpf"
+                            value={cofCpf}
+                            onChange={(e) => setCofCpf(e.target.value)}
+                            placeholder="000.000.000-00"
+                            className="text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="cof-endereco"
+                          className="text-xs font-semibold text-slate-700"
+                        >
+                          Endereço Completo
+                        </Label>
+                        <Input
+                          id="cof-endereco"
+                          value={cofEndereco}
+                          onChange={(e) => setCofEndereco(e.target.value)}
+                          placeholder="Rua, número, bairro, cidade - UF"
+                          className="text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seção 2: Anexo II (Upload da Imagem do Balanço) */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-amber-600" />
+                        Anexo II — Balanços (Imagem Editável)
+                      </Label>
+                      <Badge variant="outline" className="text-[10px]">
+                        {cofAnexoIiImagem ? 'Imagem carregada' : 'Opcional'}
+                      </Badge>
+                    </div>
+
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      accept="image/png,image/jpeg,image/jpg"
+                      className="hidden"
+                    />
+
+                    {cofAnexoIiImagem ? (
+                      <div className="space-y-2">
+                        <div className="relative border border-slate-200 rounded-lg p-2 bg-slate-50 flex items-center justify-center max-h-36 overflow-hidden">
+                          <img
+                            src={cofAnexoIiImagem}
+                            alt="Demonstrativo Financeiro Anexo II"
+                            className="max-h-32 object-contain rounded"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-xs flex-1 h-7 border-slate-300"
+                          >
+                            <Upload className="w-3 h-3 mr-1" />
+                            Trocar Imagem
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setCofAnexoIiImagem(null)}
+                            className="text-xs h-7 px-2"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-lg p-4 text-center cursor-pointer transition-colors bg-slate-50 hover:bg-amber-50/40"
+                      >
+                        <Upload className="w-6 h-6 mx-auto text-slate-400 mb-1" />
+                        <p className="text-xs font-medium text-slate-700">
+                          Clique para fazer upload da imagem do Balanço
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Formatos PNG ou JPG. Se omitido, constará espaço reservado.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Seção 3: Anexos Textuais Editáveis (III, V, VI, VII) */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                    <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2">
+                      <Edit3 className="w-4 h-4 text-amber-600" />
+                      Anexos Variáveis (III, V, VI e VII)
+                    </Label>
+
+                    {/* Anexo III */}
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="cof-anexo-iii"
+                        className="text-xs font-semibold text-slate-700"
+                      >
+                        Anexo III — Fornecedores Homologados
+                      </Label>
+                      <Textarea
+                        id="cof-anexo-iii"
+                        value={cofAnexoIiiTexto}
+                        onChange={(e) => setCofAnexoIiiTexto(e.target.value)}
+                        rows={3}
+                        className="text-xs font-mono resize-y"
+                        placeholder="Lista de fornecedores..."
+                      />
+                    </div>
+
+                    {/* Anexo V */}
+                    <div className="space-y-1">
+                      <Label htmlFor="cof-anexo-v" className="text-xs font-semibold text-slate-700">
+                        Anexo V — Relação de Unidades da Rede
+                      </Label>
+                      <Textarea
+                        id="cof-anexo-v"
+                        value={cofAnexoVTexto}
+                        onChange={(e) => setCofAnexoVTexto(e.target.value)}
+                        rows={4}
+                        className="text-xs font-mono resize-y"
+                        placeholder="Relação de unidades em operação..."
+                      />
+                    </div>
+
+                    {/* Anexo VI */}
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="cof-anexo-vi"
+                        className="text-xs font-semibold text-slate-700"
+                      >
+                        Anexo VI — Unidades que Deixaram a Rede (24 meses)
+                      </Label>
+                      <Textarea
+                        id="cof-anexo-vi"
+                        value={cofAnexoViTexto}
+                        onChange={(e) => setCofAnexoViTexto(e.target.value)}
+                        rows={2}
+                        className="text-xs font-mono resize-y"
+                        placeholder="Unidades desligadas..."
+                      />
+                    </div>
+
+                    {/* Anexo VII */}
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="cof-anexo-vii"
+                        className="text-xs font-semibold text-slate-700"
+                      >
+                        Anexo VII — Pendências Judiciais
+                      </Label>
+                      <Textarea
+                        id="cof-anexo-vii"
+                        value={cofAnexoViiTexto}
+                        onChange={(e) => setCofAnexoViiTexto(e.target.value)}
+                        rows={2}
+                        className="text-xs font-mono resize-y"
+                        placeholder="Declaração de pendências judiciais..."
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Pré-Contrato e Contrato Definitivo (campos padrão existentes) */
+                <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="data-assinatura-input"
+                      className="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
+                    >
+                      <Calendar className="w-4 h-4 text-slate-500" />
+                      Data da Assinatura (Opcional)
+                    </Label>
+                    <Input
+                      id="data-assinatura-input"
+                      type="date"
+                      value={dataAssinaturaInput}
+                      onChange={(e) => setDataAssinaturaInput(e.target.value)}
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      Substitui o placeholder <code>{`{{data_assinatura}}`}</code> no documento.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="observacoes-input"
+                      className="text-xs font-semibold text-slate-700"
+                    >
+                      Observações / Dados Complementares
+                    </Label>
+                    <Textarea
+                      id="observacoes-input"
+                      value={observacoesInput}
+                      onChange={(e) => setObservacoesInput(e.target.value)}
+                      rows={4}
+                      placeholder="Ex.: Dados da última franquia, cláusulas especiais, condições de parcelamento ou observações da praça..."
+                      className="text-xs resize-y"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      Substitui o placeholder <code>{`{{observacoes}}`}</code>.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Status do PDF Gerado e Orientação WhatsApp */}
               <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 text-xs text-blue-900 space-y-2">
@@ -788,14 +1228,24 @@ export default function VersaoContratos() {
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="w-4 h-4 text-amber-600" />
-                  Pré-Visualização ao Vivo do Contrato
+                  Pré-Visualização ao Vivo do Documento
                 </Label>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  {textoPrevisualizado.length} caracteres
-                </span>
+                <div className="flex items-center gap-2">
+                  {cofAnexoIiImagem && activeTab === 'COF' && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-amber-700 border-amber-300 bg-amber-50"
+                    >
+                      + Imagem Balanços (Anexo II)
+                    </Badge>
+                  )}
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    {textoPrevisualizado.length} caracteres
+                  </span>
+                </div>
               </div>
 
-              <div className="flex-1 min-h-[380px] max-h-[500px] overflow-y-auto border border-slate-300 rounded-xl bg-white p-5 font-mono text-xs text-slate-800 leading-relaxed shadow-inner whitespace-pre-wrap">
+              <div className="flex-1 min-h-[460px] max-h-[640px] overflow-y-auto border border-slate-300 rounded-xl bg-white p-5 font-mono text-xs text-slate-800 leading-relaxed shadow-inner whitespace-pre-wrap">
                 {textoPrevisualizado || (
                   <span className="text-slate-400 font-sans">
                     Nenhum conteúdo para pré-visualização.
