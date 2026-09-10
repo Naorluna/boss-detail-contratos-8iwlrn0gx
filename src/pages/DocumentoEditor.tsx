@@ -55,6 +55,10 @@ export default function DocumentoEditor() {
   const [dataAssinatura, setDataAssinatura] = useState<string>('')
   const [savingDataAssinatura, setSavingDataAssinatura] = useState(false)
 
+  // Data de envio state
+  const [dataEnvio, setDataEnvio] = useState<string>('')
+  const [savingDataEnvio, setSavingDataEnvio] = useState(false)
+
   // Selected file state (before save)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -67,6 +71,7 @@ export default function DocumentoEditor() {
       setContrato(c)
       setFranqueado(c.expand?.franqueado || null)
       setDataAssinatura(c.data_assinatura ? formatDateInput(c.data_assinatura) : '')
+      setDataEnvio(c.data_envio ? formatDateInput(c.data_envio) : '')
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar contrato',
@@ -178,6 +183,34 @@ export default function DocumentoEditor() {
     }
   }
 
+  // Salvar apenas a Data de Envio
+  const handleSaveDataEnvio = async () => {
+    if (!contrato) return
+    setSavingDataEnvio(true)
+    try {
+      const payload: Partial<Contrato> = {
+        data_envio: dataEnvio ? new Date(dataEnvio).toISOString() : '',
+      }
+      const updated = await contratosService.update(contrato.id, payload)
+      setContrato(updated)
+      setDataEnvio(updated.data_envio ? formatDateInput(updated.data_envio) : '')
+      toast({
+        title: 'Data de envio salva!',
+        description: dataEnvio
+          ? `Data definida para ${formatDateBR(updated.data_envio)}.`
+          : 'Data de envio removida.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar data de envio',
+        description: err?.message || 'Falha ao atualizar a data.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingDataEnvio(false)
+    }
+  }
+
   // Upload/Save document
   const handleSaveDocument = async () => {
     if (!contrato || !selectedFile) return
@@ -249,13 +282,16 @@ export default function DocumentoEditor() {
     if (!contrato) return
     setUpdatingStatus(true)
     try {
+      const envioDate = dataEnvio ? new Date(dataEnvio).toISOString() : new Date().toISOString()
       const updated = await contratosService.update(contrato.id, {
         status: 'Enviado',
+        data_envio: envioDate,
       })
       setContrato(updated)
+      setDataEnvio(updated.data_envio ? formatDateInput(updated.data_envio) : '')
       toast({
         title: 'Contrato marcado como Enviado',
-        description: 'Status atualizado com sucesso.',
+        description: `Status atualizado com sucesso (enviado em ${formatDateBR(updated.data_envio)}).`,
       })
     } catch (err: any) {
       toast({
@@ -372,6 +408,13 @@ export default function DocumentoEditor() {
               </span>
             </p>
 
+            {contrato.data_envio && (
+              <p className="flex items-center gap-1 text-purple-700 font-medium bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                <Send className="w-3 h-3 text-purple-600" />
+                Enviado em <span className="font-bold">{formatDateBR(contrato.data_envio)}</span>
+              </p>
+            )}
+
             {contrato.data_assinatura && (
               <p className="flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                 <Calendar className="w-3 h-3 text-emerald-600" />
@@ -444,84 +487,161 @@ export default function DocumentoEditor() {
         </CardHeader>
 
         <CardContent className="p-6 space-y-6">
-          {/* Campo Data de Assinatura */}
-          <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div className="space-y-1.5 flex-1 max-w-sm">
-                <Label
-                  htmlFor="data_assinatura_input"
-                  className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
-                >
-                  <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                  Data de Assinatura
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="data_assinatura_input"
-                    type="date"
-                    value={dataAssinatura}
-                    onChange={(e) => setDataAssinatura(e.target.value)}
-                    className="text-xs h-9 bg-white"
-                  />
-                  {dataAssinatura && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDataAssinatura('')}
-                      disabled={savingDataAssinatura}
-                      className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
-                      title="Limpar data"
-                    >
-                      Limpar
-                    </Button>
-                  )}
+          {/* Seção com Datas: Envio e Assinatura */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Campo Data de Envio */}
+            <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
+              <div className="flex flex-col justify-between gap-4 h-full">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="data_envio_input"
+                    className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5 text-purple-600" />
+                    Data de Envio
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="data_envio_input"
+                      type="date"
+                      value={dataEnvio}
+                      onChange={(e) => setDataEnvio(e.target.value)}
+                      className="text-xs h-9 bg-white"
+                    />
+                    {dataEnvio && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDataEnvio('')}
+                        disabled={savingDataEnvio}
+                        className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
+                        title="Limpar data"
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Data em que o contrato foi enviado para o franqueado.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Preencha ou altere a data em que o documento foi assinado pelas partes.
-                </p>
-              </div>
 
-              {/* Botão de salvar data individualmente */}
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSaveDataAssinatura}
-                  disabled={
-                    savingDataAssinatura ||
-                    uploading ||
-                    dataAssinatura ===
-                      (contrato.data_assinatura ? formatDateInput(contrato.data_assinatura) : '')
-                  }
-                  className="text-xs font-semibold h-9 gap-1.5 border-slate-300 hover:bg-slate-100"
-                >
-                  {savingDataAssinatura ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Save className="w-3.5 h-3.5" />
-                  )}
-                  Salvar Data
-                </Button>
+                {/* Botão de salvar data de envio individualmente */}
+                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
+                  <div className="text-xs text-slate-500">
+                    {contrato.data_envio ? (
+                      <span>
+                        Gravada:{' '}
+                        <strong className="text-slate-800">
+                          {formatDateBR(contrato.data_envio)}
+                        </strong>
+                      </span>
+                    ) : (
+                      <span className="italic text-slate-400">Não registrada</span>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveDataEnvio}
+                    disabled={
+                      savingDataEnvio ||
+                      uploading ||
+                      dataEnvio ===
+                        (contrato.data_envio ? formatDateInput(contrato.data_envio) : '')
+                    }
+                    className="text-xs font-semibold h-8 gap-1.5 border-slate-300 hover:bg-slate-100"
+                  >
+                    {savingDataEnvio ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    Salvar Data
+                  </Button>
+                </div>
               </div>
             </div>
 
-            {contrato.data_assinatura && (
-              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
-                <span className="text-slate-500">
-                  Data gravada no contrato:{' '}
-                  <strong className="text-slate-800">
-                    {formatDateBR(contrato.data_assinatura)}
-                  </strong>
-                </span>
-                {dataAssinatura !== formatDateInput(contrato.data_assinatura) && (
-                  <span className="text-amber-600 font-medium text-[11px]">
-                    Alterações pendentes de salvamento
-                  </span>
-                )}
+            {/* Campo Data de Assinatura */}
+            <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-3">
+              <div className="flex flex-col justify-between gap-4 h-full">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="data_assinatura_input"
+                    className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                    Data de Assinatura
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="data_assinatura_input"
+                      type="date"
+                      value={dataAssinatura}
+                      onChange={(e) => setDataAssinatura(e.target.value)}
+                      className="text-xs h-9 bg-white"
+                    />
+                    {dataAssinatura && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDataAssinatura('')}
+                        disabled={savingDataAssinatura}
+                        className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
+                        title="Limpar data"
+                      >
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Data em que o documento foi assinado pelas partes.
+                  </p>
+                </div>
+
+                {/* Botão de salvar data individualmente */}
+                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
+                  <div className="text-xs text-slate-500">
+                    {contrato.data_assinatura ? (
+                      <span>
+                        Gravada:{' '}
+                        <strong className="text-slate-800">
+                          {formatDateBR(contrato.data_assinatura)}
+                        </strong>
+                      </span>
+                    ) : (
+                      <span className="italic text-slate-400">Não registrada</span>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveDataAssinatura}
+                    disabled={
+                      savingDataAssinatura ||
+                      uploading ||
+                      dataAssinatura ===
+                        (contrato.data_assinatura ? formatDateInput(contrato.data_assinatura) : '')
+                    }
+                    className="text-xs font-semibold h-8 gap-1.5 border-slate-300 hover:bg-slate-100"
+                  >
+                    {savingDataAssinatura ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    Salvar Data
+                  </Button>
+                </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Se já houver arquivo anexado no PocketBase */}

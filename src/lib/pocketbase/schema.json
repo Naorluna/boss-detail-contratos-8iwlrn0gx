@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T17:11:20.086Z",
+  "generatedAt": "2026-09-10T17:17:02.521Z",
   "collections": [
     {
       "name": "users",
@@ -186,6 +186,12 @@
         },
         {
           "name": "data_assinatura",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_envio",
           "type": "date",
           "required": false,
           "system": false
