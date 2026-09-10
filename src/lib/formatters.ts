@@ -1,9 +1,8 @@
-export function formatDateBR(dateString?: string | null): string {
+export function formatDateBR(dateString?: string | Date | null): string {
   if (!dateString) return '—'
   try {
-    // PocketBase dates can be ISO or 'YYYY-MM-DD HH:mm:ss'
-    const clean = dateString.replace(' ', 'T')
-    const date = new Date(clean)
+    const date =
+      dateString instanceof Date ? dateString : new Date(String(dateString).replace(' ', 'T'))
     if (isNaN(date.getTime())) return '—'
     return new Intl.DateTimeFormat('pt-BR', {
       timeZone: 'UTC',
@@ -14,6 +13,27 @@ export function formatDateBR(dateString?: string | null): string {
   } catch (_) {
     return '—'
   }
+}
+
+/**
+ * Formata o intervalo de vigência calculado de 5 anos a partir da data de assinatura.
+ * Exemplo: "10/05/2024 a 10/05/2029"
+ * Se dataAssinatura for nula ou não preenchida, retorna "—".
+ */
+export function formatVigencia5Anos(dataAssinatura?: string | null): string {
+  if (!dataAssinatura) return '—'
+  const clean = dataAssinatura.replace(' ', 'T')
+  const startDate = new Date(clean)
+  if (isNaN(startDate.getTime())) return '—'
+
+  const endDate = new Date(startDate.getTime())
+  endDate.setUTCFullYear(endDate.getUTCFullYear() + 5)
+
+  const startFormatted = formatDateBR(startDate)
+  const endFormatted = formatDateBR(endDate)
+  if (startFormatted === '—' || endFormatted === '—') return '—'
+
+  return `${startFormatted} a ${endFormatted}`
 }
 
 export function formatDateInput(dateString?: string | null): string {

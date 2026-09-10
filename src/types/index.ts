@@ -61,13 +61,74 @@ export interface ContractExpiryInfo {
 }
 
 /**
- * Computes validity and red alert (<= 180 days or expired)
+ * Calcula a data final de vigência (5 anos a contar da data de assinatura).
+ * Se dataAssinatura for informada e válida, retorna um Date ou string ISO correspondente.
+ */
+export function getVigenciaFimDate(dataAssinatura?: string | null): Date | null {
+  if (!dataAssinatura) return null
+  const clean = dataAssinatura.replace(' ', 'T')
+  const date = new Date(clean)
+  if (isNaN(date.getTime())) return null
+
+  // Adiciona 5 anos preservando dia e mês UTC
+  const endDate = new Date(date.getTime())
+  endDate.setUTCFullYear(endDate.getUTCFullYear() + 5)
+  return endDate
+}
+
+/**
+ * Retorna as informações de vigência formatadas para exibição:
+ * Vigência de data_assinatura até data_assinatura + 5 anos.
+ * Se data_assinatura não estiver preenchida, retorna inicio=null, fim=null, label="—".
+ */
+export function getContractVigencia(contrato?: Contrato | null): {
+  dataInicio: string | null
+  dataFim: string | null
+  hasVigencia: boolean
+} {
+  if (!contrato || !contrato.data_assinatura) {
+    return { dataInicio: null, dataFim: null, hasVigencia: false }
+  }
+
+  const endDate = getVigenciaFimDate(contrato.data_assinatura)
+  if (!endDate) {
+    return { dataInicio: null, dataFim: null, hasVigencia: false }
+  }
+
+  return {
+    dataInicio: contrato.data_assinatura,
+    dataFim: endDate.toISOString(),
+    hasVigencia: true,
+  }
+}
+
+/**
+ * Computes validity and red alert (< 6 months / <= 180 days or expired)
+ * Baseado na data_assinatura + 5 anos da regra de negócio de franquia.
+ * Se não houver data_assinatura, não há alerta (a menos que status manual seja 'Vencido').
  */
 export function computeContractExpiry(
-  dataFim?: string,
+  dataFimOrAssinatura?: string | null,
   status?: ContractStatus,
+  options?: { isDirectEndDate?: boolean },
 ): ContractExpiryInfo {
-  if (!dataFim) {
+  // Por padrão, se options?.isDirectEndDate não for true, dataFimOrAssinatura é interpretada
+  // como data de fim já calculada SE options?.isDirectEndDate for true, senão verifica se foi passada data_assinatura.
+  let targetDate: Date | null = null
+
+  if (dataFimOrAssinatura) {
+    if (options?.isDirectEndDate) {
+      const clean = dataFimOrAssinatura.replace(' ', 'T')
+      const d = new Date(clean)
+      if (!isNaN(d.getTime())) {
+        targetDate = d
+      }
+    } else {
+      targetDate = getVigenciaFimDate(dataFimOrAssinatura)
+    }
+  }
+
+  if (!targetDate) {
     return {
       isExpired: status === 'Vencido',
       isAlert: false,
@@ -77,9 +138,7 @@ export function computeContractExpiry(
   }
 
   const now = new Date()
-  // Reset time to start of day for clean day diffs
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const targetDate = new Date(dataFim)
   const targetTime = new Date(
     targetDate.getFullYear(),
     targetDate.getMonth(),
@@ -100,6 +159,24 @@ export function computeContractExpiry(
     daysRemaining,
     monthsRemaining,
   }
+}
+
+/**
+ * Helper para calcular expiração e alertas direto de uma entidade Contrato.
+ * Regra do usuário: Vigência será sempre de 5 anos a contar da data de assinatura.
+ * Quando não há data de assinatura, não há alerta.
+ */
+export function getContratoExpiryInfo(contrato?: Contrato | null): ContractExpiryInfo {
+  if (!contrato || !contrato.data_assinatura) {
+    return {
+      isExpired: contrato?.status === 'Vencido',
+      isAlert: false,
+      daysRemaining: 9999,
+      monthsRemaining: 999,
+    }
+  }
+
+  return computeContractExpiry(contrato.data_assinatura, contrato.status)
 }
 
 export const STANDARD_DOCUMENT_TEMPLATE = `CONTRATO DE FRANQUIA — BOSS DETAIL

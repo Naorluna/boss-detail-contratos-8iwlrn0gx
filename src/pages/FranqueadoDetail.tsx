@@ -29,8 +29,14 @@ import {
   documentosService,
 } from '@/services/dataService'
 import type { Franqueado, Socio, Contrato, ContractType, Documento } from '@/types'
-import { computeContractExpiry } from '@/types'
-import { formatDateBR, formatCNPJ, formatPhone, formatCPFOrCNPJ } from '@/lib/formatters'
+import { getContratoExpiryInfo } from '@/types'
+import {
+  formatDateBR,
+  formatCNPJ,
+  formatPhone,
+  formatCPFOrCNPJ,
+  formatVigencia5Anos,
+} from '@/lib/formatters'
 import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -542,9 +548,8 @@ export default function FranqueadoDetail() {
           {allTypes.map((tipo) => {
             const contrato = contratos.find((c) => c.tipo === tipo)
             const doc = contrato ? docsMap.get(contrato.id) : null
-            const expiry = contrato
-              ? computeContractExpiry(contrato.data_fim, contrato.status)
-              : null
+            const expiry = contrato ? getContratoExpiryInfo(contrato) : null
+            const vigenciaFormatada = contrato ? formatVigencia5Anos(contrato.data_assinatura) : '—'
 
             if (!contrato) {
               return (
@@ -634,8 +639,7 @@ export default function FranqueadoDetail() {
                                   : 'text-slate-700'
                               }`}
                             >
-                              {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
-                              {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
+                              {vigenciaFormatada}
                             </span>
                           </div>
 

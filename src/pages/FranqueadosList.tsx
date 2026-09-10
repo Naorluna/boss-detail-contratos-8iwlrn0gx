@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { franqueadosService, contratosService } from '@/services/dataService'
 import type { Franqueado, Contrato } from '@/types'
-import { computeContractExpiry } from '@/types'
+import { getContratoExpiryInfo, getVigenciaFimDate } from '@/types'
 import { formatDateBR, formatCNPJ } from '@/lib/formatters'
 import { useRealtime } from '@/hooks/use-realtime'
 import { Button } from '@/components/ui/button'
@@ -192,17 +192,19 @@ export default function FranqueadosList() {
               (c) => c.status === 'Pendente' || c.status === 'Em Elaboração',
             ).length
 
-            // Find next expiring contract
+            // Find next expiring contract based on data_assinatura + 5 anos
             let closestExpiry: {
               contrato: Contrato
-              expiry: ReturnType<typeof computeContractExpiry>
+              expiry: ReturnType<typeof getContratoExpiryInfo>
+              dataFimCalculada: Date | null
             } | null = null
 
             fContracts.forEach((c) => {
-              if (c.data_fim) {
-                const exp = computeContractExpiry(c.data_fim, c.status)
+              if (c.data_assinatura) {
+                const exp = getContratoExpiryInfo(c)
+                const dataFimCalculada = getVigenciaFimDate(c.data_assinatura)
                 if (!closestExpiry || exp.daysRemaining < closestExpiry.expiry.daysRemaining) {
-                  closestExpiry = { contrato: c, expiry: exp }
+                  closestExpiry = { contrato: c, expiry: exp, dataFimCalculada }
                 }
               }
             })
@@ -297,7 +299,9 @@ export default function FranqueadosList() {
                           Próximo a Vencer ({closestExpiry.contrato.tipo})
                         </p>
                         <p className="font-semibold tabular-nums">
-                          {formatDateBR(closestExpiry.contrato.data_fim)}
+                          {closestExpiry.dataFimCalculada
+                            ? formatDateBR(closestExpiry.dataFimCalculada)
+                            : '—'}
                         </p>
                       </div>
 

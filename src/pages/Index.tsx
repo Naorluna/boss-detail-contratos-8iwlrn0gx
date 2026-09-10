@@ -19,8 +19,8 @@ import {
 } from 'lucide-react'
 import { franqueadosService, contratosService } from '@/services/dataService'
 import type { Franqueado, Contrato, ContractType, ContractStatus } from '@/types'
-import { computeContractExpiry } from '@/types'
-import { formatDateBR } from '@/lib/formatters'
+import { getContratoExpiryInfo } from '@/types'
+import { formatDateBR, formatVigencia5Anos } from '@/lib/formatters'
 import { ContractCell } from '@/components/ContractCell'
 import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -111,7 +111,7 @@ export default function Index() {
     let vencidosCount = 0
 
     contratos.forEach((c) => {
-      const expiry = computeContractExpiry(c.data_fim, c.status)
+      const expiry = getContratoExpiryInfo(c)
       if (expiry.isExpired) {
         vencidosCount++
       } else if (expiry.isAlert) {
@@ -147,7 +147,7 @@ export default function Index() {
       if (statusFilter !== 'todos') {
         const hasStatus = fContracts.some((c) => {
           if (statusFilter === 'Vencido') {
-            const expiry = computeContractExpiry(c.data_fim, c.status)
+            const expiry = getContratoExpiryInfo(c)
             return expiry.isExpired
           }
           if (statusFilter === 'Assinado') {
@@ -424,10 +424,9 @@ export default function Index() {
                       // Determinar vigência e alerta a partir do Contrato Principal (ou contrato ativo com vigência)
                       const targetContract =
                         mainContract || preContract || cofContract || inaugContract
-                      const hasVigencia =
-                        targetContract && (targetContract.data_inicio || targetContract.data_fim)
-                      const expiry = targetContract
-                        ? computeContractExpiry(targetContract.data_fim, targetContract.status)
+                      const expiry = targetContract ? getContratoExpiryInfo(targetContract) : null
+                      const vigenciaCalculada = targetContract?.data_assinatura
+                        ? formatVigencia5Anos(targetContract.data_assinatura)
                         : null
 
                       return (
@@ -488,16 +487,10 @@ export default function Index() {
 
                           {/* 6. Vigência */}
                           <td className="py-3.5 px-4 align-top tabular-nums text-slate-700 whitespace-nowrap">
-                            {hasVigencia ? (
+                            {vigenciaCalculada ? (
                               <div>
                                 <span className="font-medium text-slate-800">
-                                  {targetContract.data_inicio
-                                    ? formatDateBR(targetContract.data_inicio)
-                                    : '—'}{' '}
-                                  a{' '}
-                                  {targetContract.data_fim
-                                    ? formatDateBR(targetContract.data_fim)
-                                    : '—'}
+                                  {vigenciaCalculada}
                                 </span>
                                 {targetContract !== mainContract && (
                                   <p className="text-[10px] text-slate-400 font-normal">
@@ -734,10 +727,9 @@ export default function Index() {
                       // Determinar vigência e alerta a partir do Contrato Principal (ou contrato ativo com vigência)
                       const targetContract =
                         mainContract || preContract || cofContract || inaugContract
-                      const hasVigencia =
-                        targetContract && (targetContract.data_inicio || targetContract.data_fim)
-                      const expiry = targetContract
-                        ? computeContractExpiry(targetContract.data_fim, targetContract.status)
+                      const expiry = targetContract ? getContratoExpiryInfo(targetContract) : null
+                      const vigenciaCalculada = targetContract?.data_assinatura
+                        ? formatVigencia5Anos(targetContract.data_assinatura)
                         : null
 
                       return (
@@ -798,16 +790,10 @@ export default function Index() {
 
                           {/* 6. Vigência */}
                           <td className="py-3.5 px-4 align-top tabular-nums text-slate-700 whitespace-nowrap">
-                            {hasVigencia ? (
+                            {vigenciaCalculada ? (
                               <div>
                                 <span className="font-medium text-slate-800">
-                                  {targetContract.data_inicio
-                                    ? formatDateBR(targetContract.data_inicio)
-                                    : '—'}{' '}
-                                  a{' '}
-                                  {targetContract.data_fim
-                                    ? formatDateBR(targetContract.data_fim)
-                                    : '—'}
+                                  {vigenciaCalculada}
                                 </span>
                                 {targetContract !== mainContract && (
                                   <p className="text-[10px] text-slate-400 font-normal">

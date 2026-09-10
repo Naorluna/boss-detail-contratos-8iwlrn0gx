@@ -2,8 +2,8 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Clock, Plus, FileCheck2, Paperclip, Calendar, Pencil } from 'lucide-react'
 import { StatusBadge, getStatusExibido } from './StatusBadge'
-import { computeContractExpiry, type Contrato, type ContractType } from '@/types'
-import { formatDateBR } from '@/lib/formatters'
+import { getContratoExpiryInfo, type Contrato, type ContractType } from '@/types'
+import { formatDateBR, formatVigencia5Anos } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -89,11 +89,12 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
     )
   }
 
-  const expiry = computeContractExpiry(contrato.data_fim, contrato.status)
+  const expiry = getContratoExpiryInfo(contrato)
+  const vigenciaFormatada = formatVigencia5Anos(contrato.data_assinatura)
 
   // Style variations based on Expiry & Red Alert rule
-  // 1. Expired (data_fim past or status Vencido) -> Dark red background, red badge
-  // 2. Alert (data_fim <= 180 days) -> Red border, red text, pulsing warning pill
+  // 1. Expired (calculado a partir de data_assinatura + 5 anos ou status Vencido) -> Dark red background, red badge
+  // 2. Alert (data_assinatura + 5 anos <= 180 dias) -> Red border, red text, pulsing warning pill
   // 3. Normal
   let containerStyles = 'p-2.5 rounded-lg border transition-all bg-white shadow-xs'
 
@@ -132,16 +133,15 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
           )}
         >
           <span>Vigência: </span>
-          <span className="tabular-nums">
-            {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
-            {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
-          </span>
+          <span className="tabular-nums">{vigenciaFormatada}</span>
         </div>
 
-        {contrato.data_assinatura && (
+        {contrato.data_assinatura ? (
           <p className="text-[10px] text-emerald-700 font-medium">
             Assinado em {formatDateBR(contrato.data_assinatura)}
           </p>
+        ) : (
+          <p className="text-[10px] text-slate-400 italic">Não informada</p>
         )}
       </div>
       {/* Action link */}

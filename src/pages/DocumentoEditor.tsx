@@ -19,8 +19,8 @@ import {
 } from 'lucide-react'
 import { contratosService } from '@/services/dataService'
 import type { Contrato, Franqueado } from '@/types'
-import { computeContractExpiry } from '@/types'
-import { formatDateBR, formatDateInput } from '@/lib/formatters'
+import { getContratoExpiryInfo } from '@/types'
+import { formatDateBR, formatDateInput, formatVigencia5Anos } from '@/lib/formatters'
 import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -387,7 +387,8 @@ export default function DocumentoEditor() {
 
   if (!contrato || !franqueado) return null
 
-  const expiry = computeContractExpiry(contrato.data_fim, contrato.status)
+  const expiry = getContratoExpiryInfo(contrato)
+  const vigenciaFormatada = formatVigencia5Anos(contrato.data_assinatura)
   const existingFileUrl = contrato.documento_assinado
     ? contratosService.getFileUrl(contrato, contrato.documento_assinado)
     : ''
@@ -458,10 +459,7 @@ export default function DocumentoEditor() {
               <>
                 <p>
                   Vigência:{' '}
-                  <span className="font-semibold text-slate-700">
-                    {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'} a{' '}
-                    {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
-                  </span>
+                  <span className="font-semibold text-slate-700">{vigenciaFormatada}</span>
                 </p>
 
                 {contrato.data_envio && (
