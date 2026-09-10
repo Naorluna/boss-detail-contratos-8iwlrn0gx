@@ -622,6 +622,13 @@ export default function FranqueadoDetail() {
                         </span>
                       </div>
 
+                      {contrato.data_assinatura && (
+                        <div className="text-emerald-700 flex items-center gap-1 font-medium">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          Assinado em {formatDateBR(contrato.data_assinatura)}
+                        </div>
+                      )}
+
                       {doc?.data_envio && (
                         <div className="text-slate-500 flex items-center gap-1">
                           <CheckCircle className="w-3.5 h-3.5 text-purple-600" />

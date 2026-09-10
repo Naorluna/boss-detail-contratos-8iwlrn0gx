@@ -82,9 +82,9 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
           </span>
         </div>
 
-        {contrato.status === 'Assinado' && contrato.data_inicio && (
+        {contrato.data_assinatura && (
           <p className="text-[10px] text-emerald-700 font-medium">
-            Assinado em {formatDateBR(contrato.data_inicio)}
+            Assinado em {formatDateBR(contrato.data_assinatura)}
           </p>
         )}
       </div>
