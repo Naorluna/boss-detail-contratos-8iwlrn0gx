@@ -34,6 +34,7 @@ export interface Contrato extends RecordModel {
   status: ContractStatus
   data_inicio?: string
   data_fim?: string
+  documento_assinado?: string
   expand?: {
     franqueado?: Franqueado
   }

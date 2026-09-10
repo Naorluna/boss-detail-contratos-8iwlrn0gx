@@ -640,7 +640,9 @@ export default function FranqueadoDetail() {
                     >
                       <Link to={`/documento/${contrato.id}`}>
                         <FileText className="w-3.5 h-3.5 text-amber-400" />
-                        Gerenciar Documento
+                        {contrato.documento_assinado
+                          ? 'Ver / Alterar Documento'
+                          : 'Anexar Documento Assinado'}
                       </Link>
                     </Button>
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Clock, Plus, ExternalLink } from 'lucide-react'
+import { AlertTriangle, Clock, Plus, FileCheck2, Paperclip } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { computeContractExpiry, type Contrato, type ContractType } from '@/types'
 import { formatDateBR } from '@/lib/formatters'
@@ -67,7 +67,6 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
           </span>
         ) : null}
       </div>
-
       {/* Validity lines */}
       <div className="space-y-0.5">
         <div
@@ -89,17 +88,25 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
           </p>
         )}
       </div>
-
       {/* Action link */}
-      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-end">
+      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+        {contrato.documento_assinado ? (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+            <FileCheck2 className="w-3 h-3 text-emerald-600" />
+            Anexado
+          </span>
+        ) : (
+          <span className="text-[10px] text-slate-400">Sem anexo</span>
+        )}
+
         <Link
           to={`/documento/${contrato.id}`}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-amber-600 transition-colors group"
+          className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-amber-600 transition-colors group"
         >
-          <span>Gerenciar</span>
-          <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-amber-600 transition-colors" />
+          <Paperclip className="w-3 h-3 text-slate-400 group-hover:text-amber-600 transition-colors" />
+          <span>{contrato.documento_assinado ? 'Ver/Alterar' : 'Anexar'}</span>
         </Link>
-      </div>
+      </div>{' '}
     </div>
   )
 }

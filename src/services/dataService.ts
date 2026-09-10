@@ -130,10 +130,41 @@ export const contratosService = {
     return contrato
   },
 
-  async update(id: string, data: Partial<Contrato>): Promise<Contrato> {
+  async update(id: string, data: Partial<Contrato> | FormData): Promise<Contrato> {
     return await pb.collection('contratos').update<Contrato>(id, data, {
       expand: 'franqueado',
     })
+  },
+
+  async uploadDocumentoAssinado(
+    id: string,
+    file: File,
+    additionalData?: Partial<Contrato>,
+  ): Promise<Contrato> {
+    const formData = new FormData()
+    formData.append('documento_assinado', file)
+    if (additionalData) {
+      Object.entries(additionalData).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) {
+          formData.append(key, String(val))
+        }
+      })
+    }
+    return await pb.collection('contratos').update<Contrato>(id, formData, {
+      expand: 'franqueado',
+    })
+  },
+
+  async removeDocumentoAssinado(id: string): Promise<Contrato> {
+    return await pb
+      .collection('contratos')
+      .update<Contrato>(id, { documento_assinado: null as any }, { expand: 'franqueado' })
+  },
+
+  getFileUrl(contrato: Contrato, fileName?: string): string {
+    const file = fileName || contrato.documento_assinado
+    if (!file) return ''
+    return pb.files.getURL(contrato, file)
   },
 
   async delete(id: string): Promise<boolean> {

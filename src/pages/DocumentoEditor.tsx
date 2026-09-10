@@ -1,30 +1,26 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
+  Upload,
+  FileCheck2,
   FileText,
-  Save,
-  Send,
-  CheckCircle2,
   Trash2,
-  Eye,
-  Edit3,
-  Sparkles,
-  Info,
-  RotateCcw,
+  ExternalLink,
+  CheckCircle2,
+  Send,
   Loader2,
   AlertTriangle,
   Clock,
+  RefreshCw,
+  Image as ImageIcon,
 } from 'lucide-react'
-import { contratosService, documentosService } from '@/services/dataService'
-import type { Contrato, Documento, Franqueado } from '@/types'
-import { STANDARD_DOCUMENT_TEMPLATE, computeContractExpiry } from '@/types'
-import { formatDateBR, formatCNPJ, formatPhone } from '@/lib/formatters'
+import { contratosService } from '@/services/dataService'
+import type { Contrato, Franqueado } from '@/types'
+import { computeContractExpiry } from '@/types'
+import { formatDateBR } from '@/lib/formatters'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Dialog,
@@ -43,28 +39,18 @@ export default function DocumentoEditor() {
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [signing, setSigning] = useState(false)
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [removingFile, setRemovingFile] = useState(false)
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false)
 
   const [contrato, setContrato] = useState<Contrato | null>(null)
   const [franqueado, setFranqueado] = useState<Franqueado | null>(null)
-  const [documento, setDocumento] = useState<Documento | null>(null)
 
-  // Editor states
-  const [templateContent, setTemplateContent] = useState(STANDARD_DOCUMENT_TEMPLATE)
-  const [manualVariables, setManualVariables] = useState<{ [key: string]: string }>({
-    ultima_franquia_nome: '',
-    ultima_franquia_cnpj: '',
-    ultima_franquia_cidade: '',
-    ultima_franquia_estado: '',
-    ultima_franquia_periodo: '',
-  })
-  const [previewMode, setPreviewMode] = useState(false)
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Selected file state (before save)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchData = async () => {
     if (!contratoId) return
@@ -72,24 +58,9 @@ export default function DocumentoEditor() {
       const c = await contratosService.getById(contratoId)
       setContrato(c)
       setFranqueado(c.expand?.franqueado || null)
-
-      let doc = await documentosService.getByContrato(contratoId)
-      if (!doc) {
-        // Auto-create doc if none exists
-        doc = await documentosService.create(contratoId, STANDARD_DOCUMENT_TEMPLATE, {})
-      }
-
-      setDocumento(doc)
-      setTemplateContent(doc.conteudo || STANDARD_DOCUMENT_TEMPLATE)
-      if (doc.variaveis) {
-        setManualVariables((prev) => ({
-          ...prev,
-          ...doc?.variaveis,
-        }))
-      }
     } catch (err: any) {
       toast({
-        title: 'Erro ao carregar documento',
+        title: 'Erro ao carregar contrato',
         description: err?.message || 'Contrato não encontrado.',
         variant: 'destructive',
       })
@@ -103,232 +74,187 @@ export default function DocumentoEditor() {
     fetchData()
   }, [contratoId])
 
-  // Today formatted
-  const todayFormatted = useMemo(() => {
-    return new Intl.DateTimeFormat('pt-BR').format(new Date())
-  }, [])
-
-  // Combined variables map for replacement & display
-  const allVariables = useMemo(() => {
-    return {
-      franqueado_nome: franqueado?.nome || '',
-      franqueado_cnpj: franqueado?.cnpj ? formatCNPJ(franqueado.cnpj) : '',
-      franqueado_cidade: franqueado?.cidade || '',
-      franqueado_estado: franqueado?.estado || '',
-      franqueado_responsavel: franqueado?.responsavel || '',
-      franqueado_socio: franqueado?.responsavel || '',
-      franqueado_email: franqueado?.email || '',
-      franqueado_telefone: franqueado?.telefone ? formatPhone(franqueado.telefone) : '',
-
-      contrato_tipo: contrato?.tipo || '',
-      contrato_inicio: contrato?.data_inicio ? formatDateBR(contrato.data_inicio) : 'A definir',
-      contrato_fim: contrato?.data_fim ? formatDateBR(contrato.data_fim) : 'A definir',
-      data_hoje: todayFormatted,
-
-      ultima_franquia_nome: manualVariables.ultima_franquia_nome || '',
-      ultima_franquia_cnpj: manualVariables.ultima_franquia_cnpj || '',
-      ultima_franquia_cidade: manualVariables.ultima_franquia_cidade || '',
-      ultima_franquia_estado: manualVariables.ultima_franquia_estado || '',
-      ultima_franquia_periodo: manualVariables.ultima_franquia_periodo || '',
-    }
-  }, [franqueado, contrato, manualVariables, todayFormatted])
-
-  // Chips available for insertion
-  const availableChips = [
-    { label: 'Nome Franqueado', tag: '{{franqueado_nome}}' },
-    { label: 'CNPJ Franqueado', tag: '{{franqueado_cnpj}}' },
-    { label: 'Cidade Franqueado', tag: '{{franqueado_cidade}}' },
-    { label: 'Estado Franqueado', tag: '{{franqueado_estado}}' },
-    { label: 'Sócio', tag: '{{franqueado_socio}}' },
-    { label: 'Responsável', tag: '{{franqueado_responsavel}}' },
-    { label: 'Início Contrato', tag: '{{contrato_inicio}}' },
-    { label: 'Fim Contrato', tag: '{{contrato_fim}}' },
-    { label: 'Última Franquia Nome', tag: '{{ultima_franquia_nome}}' },
-    { label: 'Última Franquia CNPJ', tag: '{{ultima_franquia_cnpj}}' },
-    { label: 'Última Franquia Cidade', tag: '{{ultima_franquia_cidade}}' },
-    { label: 'Última Franquia Estado', tag: '{{ultima_franquia_estado}}' },
-    { label: 'Última Franquia Período', tag: '{{ultima_franquia_periodo}}' },
-    { label: 'Data Hoje', tag: '{{data_hoje}}' },
-  ]
-
-  const insertTagAtCursor = (tag: string) => {
-    if (!textareaRef.current) return
-    const textarea = textareaRef.current
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const text = templateContent
-    const before = text.substring(0, start)
-    const after = text.substring(end, text.length)
-    const updated = before + tag + after
-    setTemplateContent(updated)
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(start + tag.length, start + tag.length)
-    }, 0)
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes && bytes !== 0) return ''
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  // Render preview replacing {{tag}} with real values
-  const renderedPreviewParts = useMemo(() => {
-    const regex = /\{\{([a-zA-Z0-9_]+)\}\}/g
-    const parts: { text: string; isMissing?: boolean; isReplaced?: boolean; key?: string }[] = []
-    let lastIndex = 0
-    let match
+  const validateAndSetFile = (file: File) => {
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 
-    while ((match = regex.exec(templateContent)) !== null) {
-      // Text before match
-      if (match.index > lastIndex) {
-        parts.push({ text: templateContent.substring(lastIndex, match.index) })
+    const isPdfOrImage =
+      allowedTypes.includes(file.type.toLowerCase()) || /\.(pdf|png|jpe?g|webp)$/i.test(file.name)
+
+    if (!isPdfOrImage) {
+      toast({
+        title: 'Formato não suportado',
+        description: 'Envie um documento em PDF ou imagem (PNG, JPG, JPEG, WEBP).',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 20 MB max
+    const maxSize = 20 * 1024 * 1024
+    if (file.size > maxSize) {
+      toast({
+        title: 'Arquivo muito grande',
+        description: 'O arquivo deve ter no máximo 20 MB.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSelectedFile(file)
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      validateAndSetFile(file)
+    }
+    // reset input so the same file can be re-selected if needed
+    e.target.value = ''
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      validateAndSetFile(file)
+    }
+  }
+
+  // Upload/Save document
+  const handleSaveDocument = async () => {
+    if (!contrato || !selectedFile) return
+    setUploading(true)
+    try {
+      // Se contrato ainda estiver 'Pendente' ou 'Em Elaboração', marcar como Assinado ou manter se preferir
+      // Geralmente ao anexar o documento assinado, o status pode ser atualizado para 'Assinado' se não estiver
+      const updateData: Partial<Contrato> = {}
+      if (contrato.status !== 'Assinado') {
+        updateData.status = 'Assinado'
+        if (!contrato.data_inicio) {
+          updateData.data_inicio = new Date().toISOString()
+        }
       }
 
-      const key = match[1]
-      const val = (allVariables as any)[key]
-
-      if (val && val.trim() !== '') {
-        parts.push({ text: val, isReplaced: true, key })
-      } else {
-        parts.push({ text: `{{${key}}}`, isMissing: true, key })
-      }
-
-      lastIndex = regex.lastIndex
-    }
-
-    if (lastIndex < templateContent.length) {
-      parts.push({ text: templateContent.substring(lastIndex) })
-    }
-
-    return parts
-  }, [templateContent, allVariables])
-
-  // Save Draft action
-  const handleSaveDraft = async () => {
-    if (!documento) return
-    setSaving(true)
-    try {
-      await documentosService.update(documento.id, {
-        conteudo: templateContent,
-        variaveis: manualVariables,
-      })
+      const updated = await contratosService.uploadDocumentoAssinado(
+        contrato.id,
+        selectedFile,
+        updateData,
+      )
+      setContrato(updated)
+      setSelectedFile(null)
       toast({
-        title: 'Rascunho salvo',
-        description: 'Conteúdo e dados manuais foram atualizados com sucesso.',
+        title: 'Documento assinado anexado com sucesso!',
+        description: 'O arquivo foi salvo e o contrato foi atualizado.',
       })
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar',
-        description: err?.message || 'Falha ao salvar rascunho.',
+        title: 'Erro ao anexar documento',
+        description: err?.message || 'Falha no upload do arquivo.',
         variant: 'destructive',
       })
     } finally {
-      setSaving(false)
+      setUploading(false)
     }
   }
 
-  // Mark as Sent
-  const handleMarkAsSent = async () => {
-    if (!documento || !contrato) return
-    setSending(true)
+  // Remove attached document
+  const handleRemoveAttached = async () => {
+    if (!contrato) return
+    setRemovingFile(true)
     try {
-      const todayISO = new Date().toISOString()
-      await documentosService.update(documento.id, {
-        conteudo: templateContent,
-        variaveis: manualVariables,
-        data_envio: todayISO,
-      })
-
-      const updatedContract = await contratosService.update(contrato.id, {
-        status: 'Enviado',
-      })
-      setContrato(updatedContract)
-
+      const updated = await contratosService.removeDocumentoAssinado(contrato.id)
+      setContrato(updated)
+      setConfirmRemoveOpen(false)
       toast({
-        title: 'Documento enviado com sucesso',
-        description: 'O status do contrato foi atualizado para "Enviado".',
+        title: 'Anexo removido',
+        description: 'O documento assinado foi removido do contrato.',
       })
     } catch (err: any) {
       toast({
-        title: 'Erro ao enviar',
-        description: err?.message || 'Falha ao atualizar status.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSending(false)
-    }
-  }
-
-  // Mark as Signed
-  const handleMarkAsSigned = async () => {
-    if (!documento || !contrato) return
-    setSigning(true)
-    try {
-      await documentosService.update(documento.id, {
-        conteudo: templateContent,
-        variaveis: manualVariables,
-      })
-
-      const updatedContract = await contratosService.update(contrato.id, {
-        status: 'Assinado',
-        data_inicio: contrato.data_inicio || new Date().toISOString(),
-      })
-      setContrato(updatedContract)
-
-      toast({
-        title: 'Contrato assinado!',
-        description: 'O contrato foi marcado como "Assinado" com sucesso.',
-      })
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao assinar',
-        description: err?.message || 'Falha ao atualizar status.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSigning(false)
-    }
-  }
-
-  // Delete document (keeps contract)
-  const handleDeleteDocument = async () => {
-    if (!documento) return
-    setDeleting(true)
-    try {
-      await documentosService.delete(documento.id)
-      toast({
-        title: 'Documento excluído',
-        description: 'O documento foi removido. O contrato continua registrado.',
-      })
-      setDeleteModalOpen(false)
-      navigate(`/franqueados/${contrato?.franqueado}`)
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao excluir documento',
+        title: 'Erro ao remover anexo',
         description: err?.message || 'Falha ao remover o documento.',
         variant: 'destructive',
       })
     } finally {
-      setDeleting(false)
+      setRemovingFile(false)
     }
   }
 
-  const handleClearManual = () => {
-    setManualVariables({
-      ultima_franquia_nome: '',
-      ultima_franquia_cnpj: '',
-      ultima_franquia_cidade: '',
-      ultima_franquia_estado: '',
-      ultima_franquia_periodo: '',
-    })
-    toast({
-      title: 'Dados manuais limpos',
-      description: 'Campos de última franquia foram redefinidos.',
-    })
+  // Status button actions
+  const handleMarkAsSent = async () => {
+    if (!contrato) return
+    setUpdatingStatus(true)
+    try {
+      const updated = await contratosService.update(contrato.id, {
+        status: 'Enviado',
+      })
+      setContrato(updated)
+      toast({
+        title: 'Contrato marcado como Enviado',
+        description: 'Status atualizado com sucesso.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao atualizar status',
+        description: err?.message || 'Não foi possível alterar o status.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
+
+  const handleMarkAsSigned = async () => {
+    if (!contrato) return
+    setUpdatingStatus(true)
+    try {
+      const updated = await contratosService.update(contrato.id, {
+        status: 'Assinado',
+        data_inicio: contrato.data_inicio || new Date().toISOString(),
+      })
+      setContrato(updated)
+      toast({
+        title: 'Contrato marcado como Assinado',
+        description: 'Status atualizado com sucesso.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao atualizar status',
+        description: err?.message || 'Não foi possível alterar o status.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingStatus(false)
+    }
   }
 
   if (loading) {
     return (
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-96 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-64 w-full" />
       </div>
     )
   }
@@ -336,10 +262,16 @@ export default function DocumentoEditor() {
   if (!contrato || !franqueado) return null
 
   const expiry = computeContractExpiry(contrato.data_fim, contrato.status)
+  const existingFileUrl = contrato.documento_assinado
+    ? contratosService.getFileUrl(contrato, contrato.documento_assinado)
+    : ''
+  const isImageFile = Boolean(
+    contrato.documento_assinado && /\.(png|jpe?g|webp)$/i.test(contrato.documento_assinado),
+  )
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Top Header / Breadcrumb */}
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Top Header / Breadcrumb & Status */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
@@ -388,7 +320,7 @@ export default function DocumentoEditor() {
           </p>
         </div>
 
-        {/* Action Buttons Group */}
+        {/* Action Buttons Group (Voltar + Status Buttons) */}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
@@ -401,27 +333,13 @@ export default function DocumentoEditor() {
           </Button>
 
           <Button
+            size="sm"
             variant="outline"
-            size="sm"
-            onClick={handleSaveDraft}
-            disabled={saving || sending || signing}
-            className="text-xs font-semibold gap-1.5"
-          >
-            {saving ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            Salvar Rascunho
-          </Button>
-
-          <Button
-            size="sm"
             onClick={handleMarkAsSent}
-            disabled={saving || sending || signing || contrato.status === 'Assinado'}
-            className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold gap-1.5 shadow-sm"
+            disabled={uploading || updatingStatus || contrato.status === 'Assinado'}
+            className="text-purple-700 border-purple-200 hover:bg-purple-50 text-xs font-semibold gap-1.5"
           >
-            {sending ? (
+            {updatingStatus ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Send className="w-3.5 h-3.5" />
@@ -432,360 +350,236 @@ export default function DocumentoEditor() {
           <Button
             size="sm"
             onClick={handleMarkAsSigned}
-            disabled={saving || sending || signing || contrato.status === 'Assinado'}
+            disabled={uploading || updatingStatus || contrato.status === 'Assinado'}
             className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 shadow-sm"
           >
-            {signing ? (
+            {updatingStatus ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <CheckCircle2 className="w-3.5 h-3.5" />
             )}
             Marcar como Assinado
           </Button>
-
-          {documento && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeleteModalOpen(true)}
-              className="text-slate-400 hover:text-red-600 h-9 w-9"
-              title="Excluir documento"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
         </div>
       </div>
 
-      {/* TWO COLUMNS LAYOUT: Editor Left / Variables Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: Editor & Variable Chips (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          <Card className="border-slate-200 bg-white shadow-xs rounded-xl overflow-hidden">
-            <CardHeader className="p-4 border-b border-slate-100 flex flex-row items-center justify-between space-y-0">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-500" />
-                <CardTitle className="text-sm font-bold text-slate-900">
-                  Conteúdo do Documento
-                </CardTitle>
-              </div>
+      {/* Main Upload Card */}
+      <Card className="border-slate-200 bg-white shadow-xs rounded-xl overflow-hidden">
+        <CardHeader className="p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+              <FileCheck2 className="w-5 h-5" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900">
+                Documento Assinado
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                Faça o upload do documento assinado (PDF ou imagem) para este contrato.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
 
-              {/* Toggle Preview Button */}
-              <div className="flex items-center gap-1.5 bg-slate-100 p-0.5 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setPreviewMode(false)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                    !previewMode
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  Editar Template
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewMode(true)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                    previewMode
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  Pré-visualizar
-                </button>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-4 space-y-3">
-              {!previewMode ? (
-                <>
-                  {/* Chips for insertion */}
-                  <div>
-                    <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">
-                      Inserir Variáveis no Cursor:
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-slate-50 rounded-lg border border-slate-200">
-                      {availableChips.map((chip) => (
-                        <button
-                          key={chip.tag}
-                          type="button"
-                          onClick={() => insertTagAtCursor(chip.tag)}
-                          className="px-2 py-1 rounded-md bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-400 text-[11px] font-semibold text-slate-700 hover:text-amber-800 transition-colors shadow-xs"
-                        >
-                          + {chip.label}
-                        </button>
-                      ))}
-                    </div>
+        <CardContent className="p-6 space-y-6">
+          {/* Se já houver arquivo anexado no PocketBase */}
+          {contrato.documento_assinado && (
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    {isImageFile ? (
+                      <ImageIcon className="w-5 h-5" />
+                    ) : (
+                      <FileText className="w-5 h-5" />
+                    )}
                   </div>
-
-                  {/* Textarea Editor */}
-                  <div className="space-y-1">
-                    <Textarea
-                      ref={textareaRef}
-                      value={templateContent}
-                      onChange={(e) => setTemplateContent(e.target.value)}
-                      rows={18}
-                      className="font-mono text-xs bg-slate-900 text-slate-100 border-slate-800 rounded-lg focus-visible:ring-amber-400 leading-relaxed resize-y p-3.5"
-                      placeholder="Escreva o template do contrato..."
-                    />
-                    <p className="text-[11px] text-slate-400">
-                      Use{' '}
-                      <span className="font-mono text-amber-600 font-bold">{`{{nome_da_variavel}}`}</span>{' '}
-                      para definir os campos que serão mesclados dinamicamente.
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-emerald-950 truncate max-w-sm">
+                        {contrato.documento_assinado}
+                      </span>
+                      <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        Anexado
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-700 mt-0.5">
+                      Arquivo disponível no servidor
                     </p>
                   </div>
-                </>
-              ) : (
-                /* Rendered Preview */
-                <div className="space-y-3">
-                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2">
-                    <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>Modo de Pré-visualização:</strong> Placeholders preenchidos aparecem
-                      em destaque. Placeholders em{' '}
-                      <span className="text-red-600 font-bold">vermelho</span> indicam que o campo
-                      ainda está vazio na coluna lateral.
-                    </div>
-                  </div>
-
-                  <div className="p-5 bg-white border border-slate-200 rounded-lg font-serif text-sm leading-relaxed text-slate-800 whitespace-pre-wrap shadow-inner min-h-[400px]">
-                    {renderedPreviewParts.map((part, index) => {
-                      if (part.isMissing) {
-                        return (
-                          <span
-                            key={index}
-                            className="bg-red-100 text-red-700 px-1 py-0.5 rounded font-mono font-bold text-xs border border-red-300"
-                            title="Campo não preenchido"
-                          >
-                            {part.text}
-                          </span>
-                        )
-                      }
-                      if (part.isReplaced) {
-                        return (
-                          <span
-                            key={index}
-                            className="bg-amber-100/70 text-slate-950 font-semibold px-1 rounded underline decoration-amber-400"
-                          >
-                            {part.text}
-                          </span>
-                        )
-                      }
-                      return <span key={index}>{part.text}</span>
-                    })}
-                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* RIGHT COLUMN: Variables to Fill (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card className="border-slate-200 bg-white shadow-xs rounded-xl">
-            <CardHeader className="p-4 border-b border-slate-100">
-              <CardTitle className="text-sm font-bold text-slate-900 flex items-center justify-between">
-                <span>Dados para Preenchimento</span>
-                <Sparkles className="w-4 h-4 text-amber-500" />
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                Os dados preenchidos aqui substituem os placeholders no texto do contrato.
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="p-4 space-y-5">
-              {/* Grupo 1: Dados da Última Franquia (EDITÁVEL & SALVO EM VARIAVEIS) */}
-              <div className="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                    Dados da Última Franquia (Manual)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleClearManual}
-                    className="text-[11px] text-amber-800 hover:underline flex items-center gap-1 font-medium"
+                <div className="flex items-center gap-2">
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="border-emerald-300 text-emerald-900 hover:bg-emerald-100/80 text-xs font-semibold gap-1.5 h-8"
                   >
-                    <RotateCcw className="w-3 h-3" />
-                    Limpar
-                  </button>
-                </div>
+                    <a
+                      href={existingFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Abrir arquivo em nova aba"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Visualizar / Baixar
+                    </a>
+                  </Button>
 
-                <div className="space-y-2.5">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold text-slate-700">
-                      Nome da Franquia Anterior
-                    </Label>
-                    <Input
-                      type="text"
-                      placeholder="Ex: AutoClean Jardins"
-                      value={manualVariables.ultima_franquia_nome || ''}
-                      onChange={(e) =>
-                        setManualVariables((v) => ({ ...v, ultima_franquia_nome: e.target.value }))
-                      }
-                      className="bg-white border-amber-200 text-xs h-8 focus-visible:ring-amber-400"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold text-slate-700">
-                      CNPJ da Franquia Anterior
-                    </Label>
-                    <Input
-                      type="text"
-                      placeholder="00.000.000/0000-00"
-                      value={manualVariables.ultima_franquia_cnpj || ''}
-                      onChange={(e) =>
-                        setManualVariables((v) => ({ ...v, ultima_franquia_cnpj: e.target.value }))
-                      }
-                      className="bg-white border-amber-200 text-xs h-8 font-mono focus-visible:ring-amber-400"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2 space-y-1">
-                      <Label className="text-[11px] font-semibold text-slate-700">Cidade</Label>
-                      <Input
-                        type="text"
-                        placeholder="Ex: São Paulo"
-                        value={manualVariables.ultima_franquia_cidade || ''}
-                        onChange={(e) =>
-                          setManualVariables((v) => ({
-                            ...v,
-                            ultima_franquia_cidade: e.target.value,
-                          }))
-                        }
-                        className="bg-white border-amber-200 text-xs h-8 focus-visible:ring-amber-400"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-semibold text-slate-700">UF</Label>
-                      <Input
-                        type="text"
-                        placeholder="SP"
-                        maxLength={2}
-                        value={manualVariables.ultima_franquia_estado || ''}
-                        onChange={(e) =>
-                          setManualVariables((v) => ({
-                            ...v,
-                            ultima_franquia_estado: e.target.value.toUpperCase(),
-                          }))
-                        }
-                        className="bg-white border-amber-200 text-xs h-8 uppercase focus-visible:ring-amber-400"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold text-slate-700">
-                      Período de Atuação
-                    </Label>
-                    <Input
-                      type="text"
-                      placeholder="Ex: 2021 a 2023"
-                      value={manualVariables.ultima_franquia_periodo || ''}
-                      onChange={(e) =>
-                        setManualVariables((v) => ({
-                          ...v,
-                          ultima_franquia_periodo: e.target.value,
-                        }))
-                      }
-                      className="bg-white border-amber-200 text-xs h-8 focus-visible:ring-amber-400"
-                    />
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setConfirmRemoveOpen(true)}
+                    disabled={uploading || removingFile}
+                    className="text-slate-400 hover:text-red-600 h-8 w-8"
+                    title="Remover anexo atual"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
+            </div>
+          )}
 
-              {/* Grupo 2: Dados do Franqueado (READ-ONLY) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block mb-1">
-                  Dados do Franqueado (Sincronizado)
+          {/* Hidden File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf,image/png,image/jpeg,image/jpg,image/webp"
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
+
+          {/* Drag & Drop Area */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all flex flex-col items-center justify-center gap-3 ${
+              isDragOver
+                ? 'border-amber-500 bg-amber-50/50 scale-[1.005]'
+                : selectedFile
+                  ? 'border-amber-400 bg-amber-50/20'
+                  : 'border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400'
+            }`}
+          >
+            <div
+              className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${
+                selectedFile
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
+              }`}
+            >
+              {selectedFile ? <FileCheck2 className="w-6 h-6" /> : <Upload className="w-6 h-6" />}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-800">
+                {selectedFile ? (
+                  <span>
+                    Arquivo selecionado:{' '}
+                    <strong className="text-amber-700">{selectedFile.name}</strong>
+                  </span>
+                ) : contrato.documento_assinado ? (
+                  'Clique ou arraste um novo arquivo para substituir o atual'
+                ) : (
+                  'Clique para selecionar ou arraste o arquivo até aqui'
+                )}
+              </p>
+              <p className="text-xs text-slate-400">
+                Suporta PDF, PNG, JPG, JPEG ou WEBP (até 20 MB)
+              </p>
+            </div>
+
+            {selectedFile ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-300 text-xs text-amber-900 font-medium">
+                <span>{selectedFile.name}</span>
+                <span className="text-amber-700">({formatFileSize(selectedFile.size)})</span>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  fileInputRef.current?.click()
+                }}
+                className="text-xs font-semibold mt-1"
+              >
+                Selecionar do computador
+              </Button>
+            )}
+          </div>
+
+          {/* Action Footer: Anexar / Salvar arquivo */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
+            <div className="text-xs text-slate-500">
+              {contrato.documento_assinado ? (
+                <span>
+                  O contrato possui documento assinado.{' '}
+                  {selectedFile ? 'Salve para substituir pelo novo arquivo.' : ''}
                 </span>
+              ) : (
+                <span>Nenhum documento assinado anexado ainda.</span>
+              )}
+            </div>
 
-                <div className="space-y-1.5 text-slate-700">
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">Nome:</span>
-                    <span className="font-semibold text-slate-900">{franqueado.nome}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">CNPJ:</span>
-                    <span className="font-mono text-slate-800">
-                      {franqueado.cnpj ? formatCNPJ(franqueado.cnpj) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">Localização:</span>
-                    <span className="text-slate-800">
-                      {franqueado.cidade ? `${franqueado.cidade}/${franqueado.estado}` : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">Sócio:</span>
-                    <span className="text-slate-800">{franqueado.responsavel || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">E-mail:</span>
-                    <span className="text-slate-800 truncate max-w-[180px]">
-                      {franqueado.email || '—'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {selectedFile && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedFile(null)}
+                  disabled={uploading}
+                  className="text-xs text-slate-600 hover:text-slate-900"
+                >
+                  Cancelar seleção
+                </Button>
+              )}
 
-              {/* Grupo 3: Dados do Contrato (READ-ONLY) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block mb-1">
-                  Dados do Contrato
-                </span>
+              <Button
+                type="button"
+                onClick={handleSaveDocument}
+                disabled={!selectedFile || uploading}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-4 h-9 shadow-sm gap-2 w-full sm:w-auto"
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                {contrato.documento_assinado
+                  ? 'Salvar e Substituir Arquivo'
+                  : 'Anexar Documento Assinado'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-                <div className="space-y-1.5 text-slate-700">
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">Tipo:</span>
-                    <span className="font-semibold text-slate-900">{contrato.tipo}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">Início:</span>
-                    <span className="tabular-nums">
-                      {contrato.data_inicio ? formatDateBR(contrato.data_inicio) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">Fim (Validade):</span>
-                    <span className="tabular-nums font-semibold text-slate-900">
-                      {contrato.data_fim ? formatDateBR(contrato.data_fim) : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Data de Emissão:</span>
-                    <span className="tabular-nums text-slate-800">{todayFormatted}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Delete Document Modal */}
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+      {/* Confirmation modal to remove attached document */}
+      <Dialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
         <DialogContent className="max-w-md bg-white">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900">
-              Excluir modelo de documento?
+              Remover documento assinado?
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 pt-1">
-              Esta ação removerá o texto do template e as variáveis preenchidas para este contrato.
-              O registro do contrato não será excluído.
+              Tem certeza que deseja remover o arquivo anexado{' '}
+              <strong className="text-slate-800">{contrato.documento_assinado}</strong>? O contrato
+              ficará sem o documento arquivado.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0 mt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDeleteModalOpen(false)}
-              disabled={deleting}
+              onClick={() => setConfirmRemoveOpen(false)}
+              disabled={removingFile}
               className="text-xs"
             >
               Cancelar
@@ -793,12 +587,12 @@ export default function DocumentoEditor() {
             <Button
               type="button"
               variant="destructive"
-              onClick={handleDeleteDocument}
-              disabled={deleting}
+              onClick={handleRemoveAttached}
+              disabled={removingFile}
               className="text-xs font-semibold"
             >
-              {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-              Excluir Documento
+              {removingFile ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              Remover Anexo
             </Button>
           </DialogFooter>
         </DialogContent>

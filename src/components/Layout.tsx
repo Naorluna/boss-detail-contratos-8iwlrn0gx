@@ -72,7 +72,7 @@ export default function Layout() {
     if (location.pathname.includes('/editar')) return 'Editar Franquia'
     if (location.pathname.startsWith('/franqueados/')) return 'Detalhes do Franqueado'
     if (location.pathname.startsWith('/contratos/novo')) return 'Novo Contrato'
-    if (location.pathname.startsWith('/documento/')) return 'Gestão de Documento'
+    if (location.pathname.startsWith('/documento/')) return 'Documento Assinado'
     return 'Boss Detail'
   }
 

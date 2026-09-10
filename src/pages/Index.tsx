@@ -531,7 +531,11 @@ export default function Index() {
                                   size="sm"
                                   className="h-8 text-xs font-semibold text-slate-700 hover:text-slate-900"
                                 >
-                                  <Link to={`/documento/${mainContract.id}`}>Gerenciar</Link>
+                                  <Link to={`/documento/${mainContract.id}`}>
+                                    {mainContract.documento_assinado
+                                      ? 'Ver documento'
+                                      : 'Anexar documento'}
+                                  </Link>
                                 </Button>
                               )}
 
@@ -837,7 +841,11 @@ export default function Index() {
                                   size="sm"
                                   className="h-8 text-xs font-semibold text-slate-700 hover:text-slate-900"
                                 >
-                                  <Link to={`/documento/${mainContract.id}`}>Gerenciar</Link>
+                                  <Link to={`/documento/${mainContract.id}`}>
+                                    {mainContract.documento_assinado
+                                      ? 'Ver documento'
+                                      : 'Anexar documento'}
+                                  </Link>
                                 </Button>
                               )}
 
