@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-19T17:41:32.486Z",
+  "generatedAt": "2026-09-10T16:29:52.259Z",
   "collections": [
     {
       "name": "users",
@@ -238,6 +238,80 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_documentos_contrato ON documentos (contrato)"]
+    },
+    {
+      "name": "socios",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "franqueado",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "franqueados"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cpf_cnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telefone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "percentual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cargo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_socios_franqueado ON socios (franqueado)",
+        "CREATE INDEX idx_socios_nome ON socios (nome)"
+      ]
     }
   ]
 }

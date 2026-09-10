@@ -15,6 +15,19 @@ export interface Franqueado extends RecordModel {
   data_inauguracao?: string
 }
 
+export interface Socio extends RecordModel {
+  franqueado: string
+  nome: string
+  cpf_cnpj?: string
+  email?: string
+  telefone?: string
+  percentual?: number
+  cargo?: string
+  expand?: {
+    franqueado?: Franqueado
+  }
+}
+
 export interface Contrato extends RecordModel {
   franqueado: string
   tipo: ContractType
@@ -92,7 +105,7 @@ Contratada: Boss Detail Ltda.
 Franqueado: {{franqueado_nome}}
 CNPJ: {{franqueado_cnpj}}
 Endereço: {{franqueado_cidade}}/{{franqueado_estado}}
-Responsável: {{franqueado_responsavel}}
+Sócio / Responsável: {{franqueado_socio}}
 
 Vigência do contrato: {{contrato_inicio}} a {{contrato_fim}}
 

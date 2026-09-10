@@ -241,9 +241,11 @@ export default function FranqueadoForm() {
               </div>
             </div>
 
-            {/* Responsável */}
+            {/* Sócio / Responsável Principal */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">Nome do Responsável</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Nome do Sócio Principal
+              </Label>
               <Input
                 type="text"
                 placeholder="Ex: Carlos Andrade"
@@ -251,6 +253,9 @@ export default function FranqueadoForm() {
                 onChange={(e) => setResponsavel(e.target.value)}
                 className="bg-slate-50 border-slate-200 focus-visible:ring-amber-400 rounded-lg text-sm"
               />
+              <p className="text-[11px] text-slate-400">
+                Outros sócios podem ser adicionados diretamente na página de detalhe da unidade.
+              </p>
             </div>
 
             {/* E-mail & Telefone */}

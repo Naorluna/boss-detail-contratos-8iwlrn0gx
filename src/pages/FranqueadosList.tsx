@@ -145,7 +145,7 @@ export default function FranqueadosList() {
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
         <Input
           type="text"
-          placeholder="Filtrar por nome, cidade ou responsável..."
+          placeholder="Filtrar por nome, cidade ou sócio..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-9 bg-white border-slate-200 focus-visible:ring-amber-400 rounded-lg text-sm"
@@ -263,7 +263,7 @@ export default function FranqueadosList() {
                     {f.responsavel && (
                       <div className="flex items-center gap-1.5 text-slate-600">
                         <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{f.responsavel}</span>
+                        <span title="Sócio">{f.responsavel}</span>
                       </div>
                     )}
                   </div>

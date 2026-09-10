@@ -1,6 +1,31 @@
 import pb from '@/lib/pocketbase/client'
-import type { Franqueado, Contrato, Documento, ContractType, ContractStatus } from '@/types'
+import type { Franqueado, Socio, Contrato, Documento, ContractType, ContractStatus } from '@/types'
 import { STANDARD_DOCUMENT_TEMPLATE } from '@/types'
+
+export const sociosService = {
+  async getByFranqueado(franqueadoId: string): Promise<Socio[]> {
+    return await pb.collection('socios').getFullList<Socio>({
+      filter: `franqueado = "${franqueadoId}"`,
+      sort: '-created',
+    })
+  },
+
+  async getById(id: string): Promise<Socio> {
+    return await pb.collection('socios').getOne<Socio>(id)
+  },
+
+  async create(data: Partial<Socio>): Promise<Socio> {
+    return await pb.collection('socios').create<Socio>(data)
+  },
+
+  async update(id: string, data: Partial<Socio>): Promise<Socio> {
+    return await pb.collection('socios').update<Socio>(id, data)
+  },
+
+  async delete(id: string): Promise<boolean> {
+    return await pb.collection('socios').delete(id)
+  },
+}
 
 export const franqueadosService = {
   async getAll(): Promise<Franqueado[]> {
@@ -15,6 +40,21 @@ export const franqueadosService = {
 
   async create(data: Partial<Franqueado>): Promise<Franqueado> {
     const franqueado = await pb.collection('franqueados').create<Franqueado>(data)
+
+    // If a socio / responsavel was provided, create an initial socio record
+    if (data.responsavel && data.responsavel.trim()) {
+      try {
+        await pb.collection('socios').create({
+          franqueado: franqueado.id,
+          nome: data.responsavel.trim(),
+          email: data.email?.trim() || '',
+          telefone: data.telefone?.trim() || '',
+          cargo: 'Sócio Administrador',
+        })
+      } catch (err) {
+        console.warn('Não foi possível criar sócio inicial automaticamente:', err)
+      }
+    }
 
     // Automatically create the 3 standard contracts for this new franchisee
     const contractTypes: ContractType[] = ['Recebimento da COF', 'Pré-Contrato', 'Contrato']

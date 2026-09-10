@@ -116,6 +116,7 @@ export default function DocumentoEditor() {
       franqueado_cidade: franqueado?.cidade || '',
       franqueado_estado: franqueado?.estado || '',
       franqueado_responsavel: franqueado?.responsavel || '',
+      franqueado_socio: franqueado?.responsavel || '',
       franqueado_email: franqueado?.email || '',
       franqueado_telefone: franqueado?.telefone ? formatPhone(franqueado.telefone) : '',
 
@@ -138,6 +139,7 @@ export default function DocumentoEditor() {
     { label: 'CNPJ Franqueado', tag: '{{franqueado_cnpj}}' },
     { label: 'Cidade Franqueado', tag: '{{franqueado_cidade}}' },
     { label: 'Estado Franqueado', tag: '{{franqueado_estado}}' },
+    { label: 'Sócio', tag: '{{franqueado_socio}}' },
     { label: 'Responsável', tag: '{{franqueado_responsavel}}' },
     { label: 'Início Contrato', tag: '{{contrato_inicio}}' },
     { label: 'Fim Contrato', tag: '{{contrato_fim}}' },
@@ -720,7 +722,7 @@ export default function DocumentoEditor() {
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-200/60 pb-1">
-                    <span className="text-slate-400">Responsável:</span>
+                    <span className="text-slate-400">Sócio:</span>
                     <span className="text-slate-800">{franqueado.responsavel || '—'}</span>
                   </div>
                   <div className="flex justify-between">

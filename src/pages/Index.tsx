@@ -307,7 +307,7 @@ export default function Index() {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             <Input
               type="text"
-              placeholder="Buscar por franqueado, cidade ou responsável..."
+              placeholder="Buscar por franqueado, cidade ou sócio..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value)
@@ -463,7 +463,7 @@ export default function Index() {
                             </p>
                             {f.responsavel && (
                               <p className="text-[11px] text-slate-400 mt-0.5">
-                                Resp: <span className="text-slate-600">{f.responsavel}</span>
+                                Sócio: <span className="text-slate-600">{f.responsavel}</span>
                               </p>
                             )}
                           </td>
@@ -569,7 +569,7 @@ export default function Index() {
                           </Link>
                           <p className="text-xs text-slate-500">
                             {f.cidade ? `${f.cidade}/${f.estado || 'BR'}` : 'Local não informado'} •
-                            Resp: {f.responsavel || '—'}
+                            Sócio: {f.responsavel || '—'}
                           </p>
                         </div>
                         <DropdownMenu>

@@ -41,6 +41,18 @@ export function formatCNPJ(value?: string | null): string {
   return value
 }
 
+export function formatCPFOrCNPJ(value?: string | null): string {
+  if (!value) return ''
+  const digits = value.replace(/\D/g, '')
+  if (digits.length <= 11) {
+    return digits
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1-$2')
+  }
+  return formatCNPJ(value)
+}
+
 export function formatPhone(value?: string | null): string {
   if (!value) return ''
   const digits = value.replace(/\D/g, '')
