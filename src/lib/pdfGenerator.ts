@@ -4,6 +4,7 @@ interface PDFGenerateOptions {
   tipoLabel: string
   titulo: string
   texto: string
+  versaoRotulo?: string
   franqueadoNome?: string
   anexoIiImagemDataUrl?: string | null
 }
@@ -12,6 +13,7 @@ export function generateContractPDF({
   tipoLabel,
   titulo,
   texto,
+  versaoRotulo,
   franqueadoNome,
   anexoIiImagemDataUrl,
 }: PDFGenerateOptions): { doc: jsPDF; filename: string } {
@@ -48,7 +50,10 @@ export function generateContractPDF({
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
     doc.setTextColor(203, 213, 225) // slate-300
-    doc.text(tipoLabel.toUpperCase(), pageWidth - marginRight, 7.5, { align: 'right' })
+    const topoRightText = versaoRotulo
+      ? `${tipoLabel.toUpperCase()} • ${versaoRotulo}`
+      : tipoLabel.toUpperCase()
+    doc.text(topoRightText, pageWidth - marginRight, 7.5, { align: 'right' })
 
     // Rodapé
     doc.setDrawColor(226, 232, 240) // slate-200
@@ -57,11 +62,10 @@ export function generateContractPDF({
 
     doc.setFontSize(7.5)
     doc.setTextColor(100, 116, 139) // slate-500
-    doc.text(
-      'Boss Detail Gestão de Franquias • Documento Confidencial',
-      marginLeft,
-      pageHeight - 6.5,
-    )
+    const rodapeText = versaoRotulo
+      ? `Boss Detail Gestão de Franquias • ${versaoRotulo} • Confidencial`
+      : 'Boss Detail Gestão de Franquias • Documento Confidencial'
+    doc.text(rodapeText, marginLeft, pageHeight - 6.5)
     doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - marginRight, pageHeight - 6.5, {
       align: 'right',
     })
@@ -80,7 +84,12 @@ export function generateContractPDF({
   doc.setFontSize(8.5)
   doc.setTextColor(100, 116, 139)
   const dataHojeStr = new Date().toLocaleDateString('pt-BR')
-  doc.text(`Documento emitido via Sistema Boss Detail em ${dataHojeStr}`, marginLeft, cursorY)
+  const versaoSubHeader = versaoRotulo ? ` • ${versaoRotulo}` : ''
+  doc.text(
+    `Documento emitido via Sistema Boss Detail em ${dataHojeStr}${versaoSubHeader}`,
+    marginLeft,
+    cursorY,
+  )
   cursorY += 3.5
 
   // Linha divisória

@@ -46,6 +46,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/hooks/use-toast'
 import { modelosContratoService, franqueadosService } from '@/services/dataService'
 import type { ModeloContrato, ModeloTipo, Franqueado } from '@/types'
+import { formatModeloVersaoRotulo, computeNextModeloVersao, getModeloTipoDisplay } from '@/types'
 import { formatDateBR, formatCPFOrCNPJ, formatPhone } from '@/lib/formatters'
 import { generateContractPDF } from '@/lib/pdfGenerator'
 
@@ -360,9 +361,20 @@ export default function VersaoContratos() {
     if (!editingModelo) return
     try {
       setSavingModelo(true)
+
+      // Regra de incremento de versão por ano:
+      // Toda vez que o usuário salvar uma edição de modelo, a versão é incrementada
+      // e o ano utilizado é o ano corrente na data da edição.
+      const { versao: proximaVersao, ano_versao: proximoAno } = computeNextModeloVersao(
+        editingModelo.versao,
+        editingModelo.ano_versao,
+      )
+
       const updated = await modelosContratoService.update(editingModelo.id, {
         titulo: editTitulo,
         texto: editTexto,
+        versao: proximaVersao,
+        ano_versao: proximoAno,
       })
 
       setModelos((prev) => ({
@@ -370,9 +382,11 @@ export default function VersaoContratos() {
         [updated.tipo]: updated,
       }))
 
+      const rotuloNovo = formatModeloVersaoRotulo(updated)
+
       toast({
-        title: 'Modelo atualizado!',
-        description: `O modelo de ${updated.tipo} foi salvo no banco de dados com sucesso.`,
+        title: 'Modelo atualizado com sucesso!',
+        description: `Nova versão gerada: ${rotuloNovo}.`,
       })
       setEditingModelo(null)
     } catch (err: any) {
@@ -412,11 +426,13 @@ export default function VersaoContratos() {
       const subConfig = SUB_ABAS.find((s) => s.tipo === activeTab)
       const tipoLabel = subConfig?.label || activeTab
       const titulo = modeloAtual.titulo || `Contrato - ${tipoLabel}`
+      const versaoRotulo = formatModeloVersaoRotulo(modeloAtual)
 
       const { doc, filename } = generateContractPDF({
         tipoLabel,
         titulo,
         texto: textoPrevisualizado,
+        versaoRotulo,
         franqueadoNome: selectedFranqueado?.nome,
         anexoIiImagemDataUrl: cofAnexoIiImagem,
       })
@@ -554,28 +570,68 @@ export default function VersaoContratos() {
 
         {SUB_ABAS.map((tab) => {
           const m = modelos[tab.tipo]
+          const rotuloVersao = formatModeloVersaoRotulo(m)
           return (
             <TabsContent
               key={tab.tipo}
               value={tab.tipo}
               className="space-y-4 m-0 focus-visible:outline-none"
             >
+              {/* Card de Identificação da Versão Oficial do Modelo */}
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="p-2.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-sm shadow-sm shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
+                        Versão Ativa Cadastrada:
+                      </span>
+                      <Badge className="bg-slate-900 text-amber-300 hover:bg-slate-900 font-mono text-sm px-2.5 py-0.5 border border-slate-700 shadow-sm">
+                        {rotuloVersao}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-amber-950/80 mt-0.5">
+                      Ao editar e salvar este modelo, a numeração avança automaticamente para a
+                      próxima versão deste ano.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={handleOpenEditModelo}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs h-9 gap-1.5 shrink-0 shadow-sm"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Editar Modelo ({rotuloVersao})
+                </Button>
+              </div>
+
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="bg-slate-50/70 border-b border-slate-100 pb-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <CardTitle className="text-lg font-bold text-slate-900">
                           {m?.titulo || tab.subtitulo}
                         </CardTitle>
                         <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 font-semibold text-xs border border-amber-200">
                           {tab.badge}
                         </Badge>
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-xs border-amber-500/50 bg-amber-50 text-amber-900 font-bold"
+                        >
+                          {rotuloVersao}
+                        </Badge>
                       </div>
                       <CardDescription className="text-xs text-slate-500 mt-1">
                         Sub-aba: <strong className="text-slate-700">{tab.label}</strong> •
-                        Persistido na collection <code>modelos_contrato</code> • Suporta variáveis
-                        no formato <code>{`{{campo}}`}</code>
+                        Identificador oficial:{' '}
+                        <strong className="text-amber-800">{rotuloVersao}</strong> • Persistido na
+                        collection <code>modelos_contrato</code>
                       </CardDescription>
                     </div>
 
@@ -703,15 +759,17 @@ export default function VersaoContratos() {
                         </CardTitle>
                         <CardDescription className="text-xs text-slate-500">
                           {tab.tipo === 'COF'
-                            ? 'Preencha os dados da Declaração de Recebimento e os Anexos variáveis para gerar o documento oficial da COF.'
-                            : 'Selecione o franqueado para autopreencher os dados, revise a pré-visualização ao vivo e gere o PDF com envio por WhatsApp.'}
+                            ? `Preencha os dados da Declaração de Recebimento e os Anexos variáveis para gerar o documento oficial da COF (${rotuloVersao}).`
+                            : `Selecione o franqueado para autopreencher os dados, revise a pré-visualização ao vivo e gere o PDF com envio por WhatsApp (${rotuloVersao}).`}
                         </CardDescription>
                       </div>
                     </div>
 
-                    <Badge className="bg-slate-900 text-amber-400 font-mono text-xs self-start sm:self-auto">
-                      Modelo: {tab.tipo}
-                    </Badge>
+                    <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+                      <Badge className="bg-slate-900 text-amber-400 font-mono text-xs">
+                        {rotuloVersao}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
 
@@ -1204,13 +1262,35 @@ export default function VersaoContratos() {
       >
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6">
           <DialogHeader className="border-b pb-3">
-            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Edit3 className="w-5 h-5 text-amber-600" />
-              Editar Modelo de Contrato — {editingModelo?.tipo}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Cole ou edite o texto oficial deste contrato. Todas as alterações serão persistidas no
-              banco e utilizadas ao gerar novos contratos para os franqueados.
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-amber-600" />
+                Editar Modelo — {editingModelo ? getModeloTipoDisplay(editingModelo.tipo) : ''}
+              </DialogTitle>
+              {editingModelo && (
+                <Badge className="bg-amber-500/20 text-amber-900 border-amber-500/40 font-mono text-xs self-start sm:self-auto">
+                  Versão atual: {formatModeloVersaoRotulo(editingModelo)}
+                </Badge>
+              )}
+            </div>
+            {editingModelo && (
+              <div className="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                <p>
+                  <strong>Aviso de Versionamento:</strong> Ao salvar esta alteração, uma nova versão
+                  será criada:{' '}
+                  <span className="font-mono font-bold text-amber-950">
+                    {formatModeloVersaoRotulo({
+                      tipo: editingModelo.tipo,
+                      ...computeNextModeloVersao(editingModelo.versao, editingModelo.ano_versao),
+                    })}
+                  </span>
+                  .
+                </p>
+              </div>
+            )}
+            <DialogDescription className="text-xs text-slate-500 mt-1">
+              Cole ou edite o texto oficial deste modelo. A versão será incrementada automaticamente
+              e utilizada na emissão de PDFs e rastreabilidade institucional.
             </DialogDescription>
           </DialogHeader>
 

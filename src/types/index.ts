@@ -59,6 +59,64 @@ export interface ModeloContrato extends RecordModel {
   tipo: ModeloTipo
   titulo?: string
   texto?: string
+  versao?: number
+  ano_versao?: number
+}
+
+/**
+ * Retorna o nome amigável do tipo de modelo conforme padrão exigido:
+ * COF -> 'COF', Pre-Contrato -> 'Pré-Contrato', Contrato -> 'Contrato'
+ */
+export function getModeloTipoDisplay(tipo: ModeloTipo): string {
+  switch (tipo) {
+    case 'COF':
+      return 'COF'
+    case 'Pre-Contrato':
+      return 'Pré-Contrato'
+    case 'Contrato':
+      return 'Contrato'
+    default:
+      return tipo
+  }
+}
+
+/**
+ * Retorna o rótulo da versão do modelo no formato exato solicitado:
+ * Ex: "Modelo COF Versão 2.2026", "Modelo Pré-Contrato Versão 1.2026"
+ */
+export function formatModeloVersaoRotulo(modelo?: Partial<ModeloContrato> | null): string {
+  const tipo = modelo?.tipo ? getModeloTipoDisplay(modelo.tipo) : 'Contrato'
+  const versao = modelo?.versao ?? 1
+  const ano = modelo?.ano_versao ?? 2026
+  return `Modelo ${tipo} Versão ${versao}.${ano}`
+}
+
+/**
+ * Calcula a próxima versão e ano para quando o usuário salvar uma edição de modelo.
+ * Se o ano corrente for igual a ano_versao, incrementa versao (ex: 1.2026 -> 2.2026).
+ * Se o ano corrente for maior/diferente de ano_versao, reseta a versão para 1 no novo ano (ex: 2.2026 -> 1.2027).
+ */
+export function computeNextModeloVersao(
+  currentVersao?: number | null,
+  currentAno?: number | null,
+  targetYear: number = new Date().getFullYear(),
+): { versao: number; ano_versao: number } {
+  const anoAtual = targetYear
+  const versaoBase = currentVersao && currentVersao > 0 ? currentVersao : 1
+  const anoBase = currentAno && currentAno > 0 ? currentAno : 2026
+
+  if (anoBase === anoAtual) {
+    return {
+      versao: versaoBase + 1,
+      ano_versao: anoAtual,
+    }
+  }
+
+  // Novo ano: primeira versão elaborada naquele ano
+  return {
+    versao: 1,
+    ano_versao: anoAtual,
+  }
 }
 
 export interface ContractExpiryInfo {

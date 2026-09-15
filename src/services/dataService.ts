@@ -245,7 +245,13 @@ export const modelosContratoService = {
     tipo: ModeloTipo
     titulo?: string
     texto?: string
+    versao?: number
+    ano_versao?: number
   }): Promise<ModeloContrato> {
-    return await pb.collection('modelos_contrato').create<ModeloContrato>(data)
+    return await pb.collection('modelos_contrato').create<ModeloContrato>({
+      versao: 1,
+      ano_versao: 2026,
+      ...data,
+    })
   },
 }
