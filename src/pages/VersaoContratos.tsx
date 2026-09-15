@@ -122,7 +122,6 @@ export default function VersaoContratos() {
   const [savingModelo, setSavingModelo] = useState(false)
 
   // Estado do Quadro "Gerar Novo Contrato"
-  const [isGeradorOpen, setIsGeradorOpen] = useState(false)
   const [selectedFranqueadoId, setSelectedFranqueadoId] = useState<string>('')
   const [dataAssinaturaInput, setDataAssinaturaInput] = useState<string>(() => {
     return new Date().toISOString().split('T')[0]
@@ -387,12 +386,6 @@ export default function VersaoContratos() {
     }
   }
 
-  // Abrir gerador de contrato
-  const handleOpenGerador = () => {
-    setIsGeradorOpen(true)
-    setLastGeneratedPdf(null)
-  }
-
   // Gerar PDF
   const handleGeneratePdf = () => {
     if (!modeloAtual) {
@@ -520,13 +513,6 @@ export default function VersaoContratos() {
             <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
-          <Button
-            onClick={handleOpenGerador}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold shadow-md shadow-amber-500/20"
-          >
-            <Sparkles className="w-4 h-4 mr-2 text-slate-950" />
-            Gerar Novo Contrato
-          </Button>
         </div>
       </div>
 
@@ -562,14 +548,6 @@ export default function VersaoContratos() {
             >
               <Edit3 className="w-4 h-4 mr-1.5 text-amber-600" />
               Editar Modelo
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleOpenGerador}
-              className="bg-[#0f172a] hover:bg-slate-800 text-white font-medium"
-            >
-              <Sparkles className="w-4 h-4 mr-1.5 text-amber-400" />
-              Gerar {activeSubConfig.label}
             </Button>
           </div>
         </div>
@@ -610,14 +588,6 @@ export default function VersaoContratos() {
                       >
                         <Edit3 className="w-3.5 h-3.5 mr-1 text-amber-600" />
                         Editar Texto
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleOpenGerador}
-                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs h-8"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 mr-1" />
-                        Gerar Novo Contrato
                       </Button>
                     </div>
                   </div>
@@ -718,6 +688,508 @@ export default function VersaoContratos() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Quadro do Gerador de Contrato SEMPRE VISÍVEL */}
+              <Card className="border-slate-200 shadow-sm border-t-4 border-t-amber-500">
+                <CardHeader className="bg-slate-50/70 border-b border-slate-100 pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-9 w-9 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-bold text-slate-900">
+                          Gerador de Contrato — {tab.label}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500">
+                          {tab.tipo === 'COF'
+                            ? 'Preencha os dados da Declaração de Recebimento e os Anexos variáveis para gerar o documento oficial da COF.'
+                            : 'Selecione o franqueado para autopreencher os dados, revise a pré-visualização ao vivo e gere o PDF com envio por WhatsApp.'}
+                        </CardDescription>
+                      </div>
+                    </div>
+
+                    <Badge className="bg-slate-900 text-amber-400 font-mono text-xs self-start sm:self-auto">
+                      Modelo: {tab.tipo}
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Coluna Esquerda: Formulário de Seleção e Informações Necessárias (5 colunas) */}
+                    <div className="lg:col-span-5 space-y-4">
+                      {/* Card Seleção do Franqueado */}
+                      <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor={`select-franqueado-${tab.tipo}`}
+                            className="text-xs font-bold text-slate-900 flex items-center gap-1.5"
+                          >
+                            <Building2 className="w-4 h-4 text-amber-600" />
+                            Selecione o Franqueado / Candidato{' '}
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={selectedFranqueadoId}
+                            onValueChange={(val) => setSelectedFranqueadoId(val)}
+                          >
+                            <SelectTrigger
+                              id={`select-franqueado-${tab.tipo}`}
+                              className="w-full text-sm"
+                            >
+                              <SelectValue placeholder="Escolha uma unidade franqueada..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {franqueados.map((f) => (
+                                <SelectItem key={f.id} value={f.id}>
+                                  {f.nome} {f.cidade ? `(${f.cidade}/${f.estado || ''})` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Dados Autopreenchidos do Franqueado */}
+                        {selectedFranqueado ? (
+                          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                            <div className="flex items-center justify-between text-slate-700 font-semibold border-b border-slate-200/80 pb-1">
+                              <span>Dados da Unidade Selecionada:</span>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-white text-emerald-700 border-emerald-300"
+                              >
+                                Autopreenchido
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-1 text-slate-600">
+                              <div className="flex items-center gap-1.5">
+                                <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="font-medium text-slate-800">Responsável:</span>
+                                <span className="truncate">
+                                  {selectedFranqueado.responsavel || 'Não cadastrado'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="font-medium text-slate-800">CNPJ:</span>
+                                <span>
+                                  {formatCPFOrCNPJ(selectedFranqueado.cnpj) || 'Não informado'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="font-medium text-slate-800">Praça:</span>
+                                <span>
+                                  {selectedFranqueado.cidade || '—'} /{' '}
+                                  {selectedFranqueado.estado || '—'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="font-medium text-slate-800">Telefone:</span>
+                                <span>
+                                  {formatPhone(selectedFranqueado.telefone) || 'Não informado'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span className="font-medium text-slate-800">E-mail:</span>
+                                <span className="truncate">
+                                  {selectedFranqueado.email || 'Não informado'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 rounded-lg bg-amber-50/60 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <span>
+                              Selecione um franqueado acima para que seus dados comerciais e
+                              cadastrais sejam preenchidos automaticamente.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Se for a aba COF, mostrar campos específicos editáveis */}
+                      {tab.tipo === 'COF' ? (
+                        <>
+                          {/* Seção 1: Declaração de Recebimento */}
+                          <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 shadow-sm space-y-3">
+                            <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                              <Label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                <FileText className="w-4 h-4 text-amber-600" />
+                                Declaração de Recebimento da COF
+                              </Label>
+                              <Badge className="text-[10px] bg-amber-200/80 text-amber-900 font-medium">
+                                Editável
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-2.5">
+                              <div className="space-y-1">
+                                <Label
+                                  htmlFor="cof-data-declaracao"
+                                  className="text-xs font-semibold text-slate-700"
+                                >
+                                  Data da Declaração (Extenso)
+                                </Label>
+                                <Input
+                                  id="cof-data-declaracao"
+                                  value={cofDataDeclaracao}
+                                  onChange={(e) => setCofDataDeclaracao(e.target.value)}
+                                  placeholder="Ex.: 10 de setembro de 2026"
+                                  className="text-xs bg-white"
+                                />
+                                <p className="text-[10px] text-slate-500">
+                                  Preenche "Brasília, {`{{data_declaracao}}`}."
+                                </p>
+                              </div>
+
+                              <div className="space-y-1">
+                                <Label
+                                  htmlFor="cof-nome-candidato"
+                                  className="text-xs font-semibold text-slate-700"
+                                >
+                                  Nome do Candidato
+                                </Label>
+                                <Input
+                                  id="cof-nome-candidato"
+                                  value={cofNomeCandidato}
+                                  onChange={(e) => setCofNomeCandidato(e.target.value)}
+                                  placeholder="Nome completo do candidato"
+                                  className="text-xs bg-white"
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <Label
+                                    htmlFor="cof-rg"
+                                    className="text-xs font-semibold text-slate-700"
+                                  >
+                                    RG
+                                  </Label>
+                                  <Input
+                                    id="cof-rg"
+                                    value={cofRg}
+                                    onChange={(e) => setCofRg(e.target.value)}
+                                    placeholder="Ex.: 00.000.000-0"
+                                    className="text-xs bg-white"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label
+                                    htmlFor="cof-cpf"
+                                    className="text-xs font-semibold text-slate-700"
+                                  >
+                                    CPF / CNPJ
+                                  </Label>
+                                  <Input
+                                    id="cof-cpf"
+                                    value={cofCpf}
+                                    onChange={(e) => setCofCpf(e.target.value)}
+                                    placeholder="000.000.000-00"
+                                    className="text-xs bg-white"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <Label
+                                  htmlFor="cof-endereco"
+                                  className="text-xs font-semibold text-slate-700"
+                                >
+                                  Endereço Completo
+                                </Label>
+                                <Input
+                                  id="cof-endereco"
+                                  value={cofEndereco}
+                                  onChange={(e) => setCofEndereco(e.target.value)}
+                                  placeholder="Rua, número, bairro, cidade - UF"
+                                  className="text-xs bg-white"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Seção 2: Anexo II (Upload da Imagem do Balanço) */}
+                          <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                              <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                <ImageIcon className="w-4 h-4 text-amber-600" />
+                                Anexo II — Balanços (Imagem Editável)
+                              </Label>
+                              <Badge variant="outline" className="text-[10px]">
+                                {cofAnexoIiImagem ? 'Imagem carregada' : 'Opcional'}
+                              </Badge>
+                            </div>
+
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              onChange={handleImageUpload}
+                              accept="image/png,image/jpeg,image/jpg"
+                              className="hidden"
+                            />
+
+                            {cofAnexoIiImagem ? (
+                              <div className="space-y-2">
+                                <div className="relative border border-slate-200 rounded-lg p-2 bg-slate-50 flex items-center justify-center max-h-36 overflow-hidden">
+                                  <img
+                                    src={cofAnexoIiImagem}
+                                    alt="Demonstrativo Financeiro Anexo II"
+                                    className="max-h-32 object-contain rounded"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="text-xs flex-1 h-7 border-slate-300"
+                                  >
+                                    <Upload className="w-3 h-3 mr-1" />
+                                    Trocar Imagem
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => setCofAnexoIiImagem(null)}
+                                    className="text-xs h-7 px-2"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-lg p-4 text-center cursor-pointer transition-colors bg-slate-50 hover:bg-amber-50/40"
+                              >
+                                <Upload className="w-6 h-6 mx-auto text-slate-400 mb-1" />
+                                <p className="text-xs font-medium text-slate-700">
+                                  Clique para fazer upload da imagem do Balanço
+                                </p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                  Formatos PNG ou JPG. Se omitido, constará espaço reservado.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Seção 3: Anexos Textuais Editáveis (III, V, VI, VII) */}
+                          <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                            <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2">
+                              <Edit3 className="w-4 h-4 text-amber-600" />
+                              Anexos Variáveis (III, V, VI e VII)
+                            </Label>
+
+                            {/* Anexo III */}
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="cof-anexo-iii"
+                                className="text-xs font-semibold text-slate-700"
+                              >
+                                Anexo III — Fornecedores Homologados
+                              </Label>
+                              <Textarea
+                                id="cof-anexo-iii"
+                                value={cofAnexoIiiTexto}
+                                onChange={(e) => setCofAnexoIiiTexto(e.target.value)}
+                                rows={3}
+                                className="text-xs font-mono resize-y"
+                                placeholder="Lista de fornecedores..."
+                              />
+                            </div>
+
+                            {/* Anexo V */}
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="cof-anexo-v"
+                                className="text-xs font-semibold text-slate-700"
+                              >
+                                Anexo V — Relação de Unidades da Rede
+                              </Label>
+                              <Textarea
+                                id="cof-anexo-v"
+                                value={cofAnexoVTexto}
+                                onChange={(e) => setCofAnexoVTexto(e.target.value)}
+                                rows={4}
+                                className="text-xs font-mono resize-y"
+                                placeholder="Relação de unidades em operação..."
+                              />
+                            </div>
+
+                            {/* Anexo VI */}
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="cof-anexo-vi"
+                                className="text-xs font-semibold text-slate-700"
+                              >
+                                Anexo VI — Unidades que Deixaram a Rede (24 meses)
+                              </Label>
+                              <Textarea
+                                id="cof-anexo-vi"
+                                value={cofAnexoViTexto}
+                                onChange={(e) => setCofAnexoViTexto(e.target.value)}
+                                rows={2}
+                                className="text-xs font-mono resize-y"
+                                placeholder="Unidades desligadas..."
+                              />
+                            </div>
+
+                            {/* Anexo VII */}
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="cof-anexo-vii"
+                                className="text-xs font-semibold text-slate-700"
+                              >
+                                Anexo VII — Pendências Judiciais
+                              </Label>
+                              <Textarea
+                                id="cof-anexo-vii"
+                                value={cofAnexoViiTexto}
+                                onChange={(e) => setCofAnexoViiTexto(e.target.value)}
+                                rows={2}
+                                className="text-xs font-mono resize-y"
+                                placeholder="Declaração de pendências judiciais..."
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* Pré-Contrato e Contrato Definitivo (campos padrão existentes) */
+                        <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
+                          <div className="space-y-1.5">
+                            <Label
+                              htmlFor={`data-assinatura-input-${tab.tipo}`}
+                              className="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
+                            >
+                              <Calendar className="w-4 h-4 text-slate-500" />
+                              Data da Assinatura (Opcional)
+                            </Label>
+                            <Input
+                              id={`data-assinatura-input-${tab.tipo}`}
+                              type="date"
+                              value={dataAssinaturaInput}
+                              onChange={(e) => setDataAssinaturaInput(e.target.value)}
+                              className="text-sm"
+                            />
+                            <p className="text-[11px] text-slate-500">
+                              Substitui o placeholder <code>{`{{data_assinatura}}`}</code> no
+                              documento.
+                            </p>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label
+                              htmlFor={`observacoes-input-${tab.tipo}`}
+                              className="text-xs font-semibold text-slate-700"
+                            >
+                              Observações / Dados Complementares
+                            </Label>
+                            <Textarea
+                              id={`observacoes-input-${tab.tipo}`}
+                              value={observacoesInput}
+                              onChange={(e) => setObservacoesInput(e.target.value)}
+                              rows={4}
+                              placeholder="Ex.: Dados da última franquia, cláusulas especiais, condições de parcelamento ou observações da praça..."
+                              className="text-xs resize-y"
+                            />
+                            <p className="text-[11px] text-slate-500">
+                              Substitui o placeholder <code>{`{{observacoes}}`}</code>.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Status do PDF Gerado e Orientação WhatsApp */}
+                      <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 text-xs text-blue-900 space-y-2">
+                        <div className="flex items-start gap-2 font-medium">
+                          <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold">Aviso sobre o WhatsApp:</span> O link wa.me
+                            não permite anexar arquivos automaticamente por limitações da própria
+                            API do WhatsApp. Ao clicar em <strong>"Gerar PDF"</strong>, o arquivo é
+                            baixado no seu computador e, ao clicar em{' '}
+                            <strong>"Enviar por WhatsApp"</strong>, a conversa é aberta com a
+                            mensagem preenchida para você anexar o PDF.
+                          </div>
+                        </div>
+
+                        {lastGeneratedPdf && (
+                          <div className="pt-2 border-t border-blue-200/80 flex items-center gap-2 text-emerald-800 font-semibold">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="truncate">
+                              Último PDF baixado: <strong>{lastGeneratedPdf.filename}</strong>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Coluna Direita: Pré-Visualização ao Vivo (7 colunas) */}
+                    <div className="lg:col-span-7 flex flex-col space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <FileText className="w-4 h-4 text-amber-600" />
+                          Pré-Visualização ao Vivo do Documento ({tab.label})
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          {cofAnexoIiImagem && tab.tipo === 'COF' && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] text-amber-700 border-amber-300 bg-amber-50"
+                            >
+                              + Imagem Balanços (Anexo II)
+                            </Badge>
+                          )}
+                          <span className="text-[11px] text-slate-500 font-mono">
+                            {textoPrevisualizado.length} caracteres
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 min-h-[460px] max-h-[640px] overflow-y-auto border border-slate-300 rounded-xl bg-white p-5 font-mono text-xs text-slate-800 leading-relaxed shadow-inner whitespace-pre-wrap">
+                        {textoPrevisualizado || (
+                          <span className="text-slate-400 font-sans">
+                            Nenhum conteúdo para pré-visualização.
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Ações de Download e WhatsApp na coluna da direita ou rodapé do card */}
+                      <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                        <Button
+                          type="button"
+                          onClick={handleGeneratePdf}
+                          disabled={generatingPdf || !selectedFranqueadoId}
+                          className="w-full sm:w-auto bg-[#0f172a] hover:bg-slate-800 text-white font-medium gap-2"
+                        >
+                          <Download className="w-4 h-4 text-amber-400" />
+                          {generatingPdf ? 'Gerando PDF...' : `Gerar PDF — ${tab.label}`}
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={handleSendWhatsApp}
+                          disabled={!selectedFranqueadoId}
+                          className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 shadow-sm"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          Enviar por WhatsApp
+                          <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           )
         })}
@@ -795,498 +1267,6 @@ export default function VersaoContratos() {
               <Save className="w-4 h-4" />
               {savingModelo ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* MODAL 2: QUADRO GERAR NOVO CONTRATO COM PREENCHIMENTO AUTOMÁTICO E SEÇÕES DA COF */}
-      <Dialog open={isGeradorOpen} onOpenChange={setIsGeradorOpen}>
-        <DialogContent className="max-w-6xl max-h-[94vh] flex flex-col p-6">
-          <DialogHeader className="border-b pb-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="h-9 w-9 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <DialogTitle className="text-lg font-bold text-slate-900">
-                    Gerar Novo Contrato — {activeSubConfig.label}
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-slate-500">
-                    {activeTab === 'COF'
-                      ? 'Preencha os dados da Declaração de Recebimento e os Anexos variáveis para gerar o documento oficial da COF.'
-                      : 'Selecione o franqueado para autopreencher os dados, revise a pré-visualização ao vivo e gere o PDF com envio por WhatsApp.'}
-                  </DialogDescription>
-                </div>
-              </div>
-
-              <Badge className="bg-slate-900 text-amber-400 font-mono text-xs self-start sm:self-auto">
-                Modelo: {activeTab}
-              </Badge>
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6 py-4">
-            {/* Coluna Esquerda: Formulário de Seleção e Informações Necessárias (5 colunas) */}
-            <div className="lg:col-span-5 space-y-4">
-              {/* Card Seleção do Franqueado */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="select-franqueado"
-                    className="text-xs font-bold text-slate-900 flex items-center gap-1.5"
-                  >
-                    <Building2 className="w-4 h-4 text-amber-600" />
-                    Selecione o Franqueado / Candidato <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={selectedFranqueadoId}
-                    onValueChange={(val) => setSelectedFranqueadoId(val)}
-                  >
-                    <SelectTrigger id="select-franqueado" className="w-full text-sm">
-                      <SelectValue placeholder="Escolha uma unidade franqueada..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {franqueados.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.nome} {f.cidade ? `(${f.cidade}/${f.estado || ''})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Dados Autopreenchidos do Franqueado */}
-                {selectedFranqueado ? (
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-slate-700 font-semibold border-b border-slate-200/80 pb-1">
-                      <span>Dados da Unidade Selecionada:</span>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] bg-white text-emerald-700 border-emerald-300"
-                      >
-                        Autopreenchido
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-1 text-slate-600">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-medium text-slate-800">Responsável:</span>
-                        <span className="truncate">
-                          {selectedFranqueado.responsavel || 'Não cadastrado'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-medium text-slate-800">CNPJ:</span>
-                        <span>{formatCPFOrCNPJ(selectedFranqueado.cnpj) || 'Não informado'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-medium text-slate-800">Praça:</span>
-                        <span>
-                          {selectedFranqueado.cidade || '—'} / {selectedFranqueado.estado || '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-medium text-slate-800">Telefone:</span>
-                        <span>{formatPhone(selectedFranqueado.telefone) || 'Não informado'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-medium text-slate-800">E-mail:</span>
-                        <span className="truncate">
-                          {selectedFranqueado.email || 'Não informado'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-lg bg-amber-50/60 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <span>
-                      Selecione um franqueado acima para que seus dados comerciais e cadastrais
-                      sejam preenchidos automaticamente.
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Se for a aba COF, mostrar campos específicos editáveis */}
-              {activeTab === 'COF' ? (
-                <>
-                  {/* Seção 1: Declaração de Recebimento */}
-                  <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/40 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
-                      <Label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                        <FileText className="w-4 h-4 text-amber-600" />
-                        Declaração de Recebimento da COF
-                      </Label>
-                      <Badge className="text-[10px] bg-amber-200/80 text-amber-900 font-medium">
-                        Editável
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      <div className="space-y-1">
-                        <Label
-                          htmlFor="cof-data-declaracao"
-                          className="text-xs font-semibold text-slate-700"
-                        >
-                          Data da Declaração (Extenso)
-                        </Label>
-                        <Input
-                          id="cof-data-declaracao"
-                          value={cofDataDeclaracao}
-                          onChange={(e) => setCofDataDeclaracao(e.target.value)}
-                          placeholder="Ex.: 10 de setembro de 2026"
-                          className="text-xs bg-white"
-                        />
-                        <p className="text-[10px] text-slate-500">
-                          Preenche "Brasília, {`{{data_declaracao}}`}."
-                        </p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label
-                          htmlFor="cof-nome-candidato"
-                          className="text-xs font-semibold text-slate-700"
-                        >
-                          Nome do Candidato
-                        </Label>
-                        <Input
-                          id="cof-nome-candidato"
-                          value={cofNomeCandidato}
-                          onChange={(e) => setCofNomeCandidato(e.target.value)}
-                          placeholder="Nome completo do candidato"
-                          className="text-xs bg-white"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label htmlFor="cof-rg" className="text-xs font-semibold text-slate-700">
-                            RG
-                          </Label>
-                          <Input
-                            id="cof-rg"
-                            value={cofRg}
-                            onChange={(e) => setCofRg(e.target.value)}
-                            placeholder="Ex.: 00.000.000-0"
-                            className="text-xs bg-white"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="cof-cpf" className="text-xs font-semibold text-slate-700">
-                            CPF / CNPJ
-                          </Label>
-                          <Input
-                            id="cof-cpf"
-                            value={cofCpf}
-                            onChange={(e) => setCofCpf(e.target.value)}
-                            placeholder="000.000.000-00"
-                            className="text-xs bg-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label
-                          htmlFor="cof-endereco"
-                          className="text-xs font-semibold text-slate-700"
-                        >
-                          Endereço Completo
-                        </Label>
-                        <Input
-                          id="cof-endereco"
-                          value={cofEndereco}
-                          onChange={(e) => setCofEndereco(e.target.value)}
-                          placeholder="Rua, número, bairro, cidade - UF"
-                          className="text-xs bg-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Seção 2: Anexo II (Upload da Imagem do Balanço) */}
-                  <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <ImageIcon className="w-4 h-4 text-amber-600" />
-                        Anexo II — Balanços (Imagem Editável)
-                      </Label>
-                      <Badge variant="outline" className="text-[10px]">
-                        {cofAnexoIiImagem ? 'Imagem carregada' : 'Opcional'}
-                      </Badge>
-                    </div>
-
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageUpload}
-                      accept="image/png,image/jpeg,image/jpg"
-                      className="hidden"
-                    />
-
-                    {cofAnexoIiImagem ? (
-                      <div className="space-y-2">
-                        <div className="relative border border-slate-200 rounded-lg p-2 bg-slate-50 flex items-center justify-center max-h-36 overflow-hidden">
-                          <img
-                            src={cofAnexoIiImagem}
-                            alt="Demonstrativo Financeiro Anexo II"
-                            className="max-h-32 object-contain rounded"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="text-xs flex-1 h-7 border-slate-300"
-                          >
-                            <Upload className="w-3 h-3 mr-1" />
-                            Trocar Imagem
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setCofAnexoIiImagem(null)}
-                            className="text-xs h-7 px-2"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-lg p-4 text-center cursor-pointer transition-colors bg-slate-50 hover:bg-amber-50/40"
-                      >
-                        <Upload className="w-6 h-6 mx-auto text-slate-400 mb-1" />
-                        <p className="text-xs font-medium text-slate-700">
-                          Clique para fazer upload da imagem do Balanço
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          Formatos PNG ou JPG. Se omitido, constará espaço reservado.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Seção 3: Anexos Textuais Editáveis (III, V, VI, VII) */}
-                  <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
-                    <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2">
-                      <Edit3 className="w-4 h-4 text-amber-600" />
-                      Anexos Variáveis (III, V, VI e VII)
-                    </Label>
-
-                    {/* Anexo III */}
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="cof-anexo-iii"
-                        className="text-xs font-semibold text-slate-700"
-                      >
-                        Anexo III — Fornecedores Homologados
-                      </Label>
-                      <Textarea
-                        id="cof-anexo-iii"
-                        value={cofAnexoIiiTexto}
-                        onChange={(e) => setCofAnexoIiiTexto(e.target.value)}
-                        rows={3}
-                        className="text-xs font-mono resize-y"
-                        placeholder="Lista de fornecedores..."
-                      />
-                    </div>
-
-                    {/* Anexo V */}
-                    <div className="space-y-1">
-                      <Label htmlFor="cof-anexo-v" className="text-xs font-semibold text-slate-700">
-                        Anexo V — Relação de Unidades da Rede
-                      </Label>
-                      <Textarea
-                        id="cof-anexo-v"
-                        value={cofAnexoVTexto}
-                        onChange={(e) => setCofAnexoVTexto(e.target.value)}
-                        rows={4}
-                        className="text-xs font-mono resize-y"
-                        placeholder="Relação de unidades em operação..."
-                      />
-                    </div>
-
-                    {/* Anexo VI */}
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="cof-anexo-vi"
-                        className="text-xs font-semibold text-slate-700"
-                      >
-                        Anexo VI — Unidades que Deixaram a Rede (24 meses)
-                      </Label>
-                      <Textarea
-                        id="cof-anexo-vi"
-                        value={cofAnexoViTexto}
-                        onChange={(e) => setCofAnexoViTexto(e.target.value)}
-                        rows={2}
-                        className="text-xs font-mono resize-y"
-                        placeholder="Unidades desligadas..."
-                      />
-                    </div>
-
-                    {/* Anexo VII */}
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="cof-anexo-vii"
-                        className="text-xs font-semibold text-slate-700"
-                      >
-                        Anexo VII — Pendências Judiciais
-                      </Label>
-                      <Textarea
-                        id="cof-anexo-vii"
-                        value={cofAnexoViiTexto}
-                        onChange={(e) => setCofAnexoViiTexto(e.target.value)}
-                        rows={2}
-                        className="text-xs font-mono resize-y"
-                        placeholder="Declaração de pendências judiciais..."
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                /* Pré-Contrato e Contrato Definitivo (campos padrão existentes) */
-                <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3">
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="data-assinatura-input"
-                      className="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
-                    >
-                      <Calendar className="w-4 h-4 text-slate-500" />
-                      Data da Assinatura (Opcional)
-                    </Label>
-                    <Input
-                      id="data-assinatura-input"
-                      type="date"
-                      value={dataAssinaturaInput}
-                      onChange={(e) => setDataAssinaturaInput(e.target.value)}
-                      className="text-sm"
-                    />
-                    <p className="text-[11px] text-slate-500">
-                      Substitui o placeholder <code>{`{{data_assinatura}}`}</code> no documento.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="observacoes-input"
-                      className="text-xs font-semibold text-slate-700"
-                    >
-                      Observações / Dados Complementares
-                    </Label>
-                    <Textarea
-                      id="observacoes-input"
-                      value={observacoesInput}
-                      onChange={(e) => setObservacoesInput(e.target.value)}
-                      rows={4}
-                      placeholder="Ex.: Dados da última franquia, cláusulas especiais, condições de parcelamento ou observações da praça..."
-                      className="text-xs resize-y"
-                    />
-                    <p className="text-[11px] text-slate-500">
-                      Substitui o placeholder <code>{`{{observacoes}}`}</code>.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Status do PDF Gerado e Orientação WhatsApp */}
-              <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 text-xs text-blue-900 space-y-2">
-                <div className="flex items-start gap-2 font-medium">
-                  <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Aviso sobre o WhatsApp:</span> O link wa.me não
-                    permite anexar arquivos automaticamente por limitações da própria API do
-                    WhatsApp. Ao clicar em <strong>"Gerar PDF"</strong>, o arquivo é baixado no seu
-                    computador e, ao clicar em <strong>"Enviar por WhatsApp"</strong>, a conversa é
-                    aberta com a mensagem preenchida para você anexar o PDF.
-                  </div>
-                </div>
-
-                {lastGeneratedPdf && (
-                  <div className="pt-2 border-t border-blue-200/80 flex items-center gap-2 text-emerald-800 font-semibold">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="truncate">
-                      Último PDF baixado: <strong>{lastGeneratedPdf.filename}</strong>
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Coluna Direita: Pré-Visualização ao Vivo (7 colunas) */}
-            <div className="lg:col-span-7 flex flex-col space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-amber-600" />
-                  Pré-Visualização ao Vivo do Documento
-                </Label>
-                <div className="flex items-center gap-2">
-                  {cofAnexoIiImagem && activeTab === 'COF' && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] text-amber-700 border-amber-300 bg-amber-50"
-                    >
-                      + Imagem Balanços (Anexo II)
-                    </Badge>
-                  )}
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    {textoPrevisualizado.length} caracteres
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-[460px] max-h-[640px] overflow-y-auto border border-slate-300 rounded-xl bg-white p-5 font-mono text-xs text-slate-800 leading-relaxed shadow-inner whitespace-pre-wrap">
-                {textoPrevisualizado || (
-                  <span className="text-slate-400 font-sans">
-                    Nenhum conteúdo para pré-visualização.
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="border-t pt-3 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsGeradorOpen(false)}
-              className="w-full sm:w-auto"
-            >
-              Fechar
-            </Button>
-
-            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-              <Button
-                type="button"
-                onClick={handleGeneratePdf}
-                disabled={generatingPdf || !selectedFranqueadoId}
-                className="w-full sm:w-auto bg-[#0f172a] hover:bg-slate-800 text-white font-medium gap-2"
-              >
-                <Download className="w-4 h-4 text-amber-400" />
-                {generatingPdf ? 'Gerando PDF...' : 'Gerar PDF'}
-              </Button>
-
-              <Button
-                type="button"
-                onClick={handleSendWhatsApp}
-                disabled={!selectedFranqueadoId}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 shadow-sm"
-              >
-                <Share2 className="w-4 h-4" />
-                Enviar por WhatsApp
-                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-              </Button>
-            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
