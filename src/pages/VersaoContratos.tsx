@@ -553,19 +553,6 @@ export default function VersaoContratos() {
               </TabsTrigger>
             ))}
           </TabsList>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenEditModelo}
-              disabled={loading || !modeloAtual}
-              className="border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <Edit3 className="w-4 h-4 mr-1.5 text-amber-600" />
-              Editar Modelo
-            </Button>
-          </div>
         </div>
 
         {SUB_ABAS.map((tab) => {
