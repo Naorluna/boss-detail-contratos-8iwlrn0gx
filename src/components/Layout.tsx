@@ -1,6 +1,17 @@
 import React, { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
-import { Users, FileText, LogOut, Menu, X, PlusCircle, Shield, Sparkles, Files } from 'lucide-react'
+import {
+  Users,
+  FileText,
+  LogOut,
+  Menu,
+  X,
+  PlusCircle,
+  Shield,
+  Sparkles,
+  Files,
+  Workflow,
+} from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -53,6 +64,12 @@ export default function Layout() {
       icon: Files,
       active: location.pathname.startsWith('/versao-contratos'),
     },
+    {
+      label: 'Fluxograma',
+      path: '/fluxograma',
+      icon: Workflow,
+      active: location.pathname.startsWith('/fluxograma'),
+    },
   ]
 
   const getPageTitle = () => {
@@ -65,6 +82,7 @@ export default function Layout() {
     if (location.pathname.startsWith('/franqueados/')) return 'Detalhes do Franqueado'
     if (location.pathname.startsWith('/contratos/novo')) return 'Novo Contrato'
     if (location.pathname.startsWith('/versao-contratos')) return 'Versão dos Contratos'
+    if (location.pathname.startsWith('/fluxograma')) return 'Fluxograma Comercial'
     if (location.pathname.startsWith('/documento/')) return 'Documento Assinado'
     return 'Boss Detail'
   }
