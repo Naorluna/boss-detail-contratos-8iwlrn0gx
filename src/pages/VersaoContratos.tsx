@@ -20,6 +20,11 @@ import {
   Upload,
   Image as ImageIcon,
   Trash2,
+  History,
+  RotateCcw,
+  Eye,
+  Clock,
+  Check,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -44,8 +49,19 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/hooks/use-toast'
-import { modelosContratoService, franqueadosService } from '@/services/dataService'
-import type { ModeloContrato, ModeloTipo, Franqueado } from '@/types'
+import {
+  modelosContratoService,
+  franqueadosService,
+  modelosHistoricoService,
+  historicoGeracaoService,
+} from '@/services/dataService'
+import type {
+  ModeloContrato,
+  ModeloTipo,
+  Franqueado,
+  ModeloHistoricoVersao,
+  HistoricoGeracaoContrato,
+} from '@/types'
 import { formatModeloVersaoRotulo, computeNextModeloVersao, getModeloTipoDisplay } from '@/types'
 import { formatDateBR, formatCPFOrCNPJ, formatPhone } from '@/lib/formatters'
 import { generateContractPDF } from '@/lib/pdfGenerator'
@@ -116,11 +132,34 @@ export default function VersaoContratos() {
   const [loading, setLoading] = useState(true)
   const [franqueados, setFranqueados] = useState<Franqueado[]>([])
 
+  // Histórico de Versões e Histórico de Geração
+  const [historicoVersoes, setHistoricoVersoes] = useState<
+    Record<ModeloTipo, ModeloHistoricoVersao[]>
+  >({
+    COF: [],
+    'Pre-Contrato': [],
+    Contrato: [],
+  })
+  const [historicoGeracao, setHistoricoGeracao] = useState<
+    Record<ModeloTipo, HistoricoGeracaoContrato[]>
+  >({
+    COF: [],
+    'Pre-Contrato': [],
+    Contrato: [],
+  })
+
   // Estado do Modal de Edição de Modelo
   const [editingModelo, setEditingModelo] = useState<ModeloContrato | null>(null)
   const [editTexto, setEditTexto] = useState('')
   const [editTitulo, setEditTitulo] = useState('')
   const [savingModelo, setSavingModelo] = useState(false)
+
+  // Estado do Modal de Visualização de Versão Anterior
+  const [viewingVersao, setViewingVersao] = useState<ModeloHistoricoVersao | null>(null)
+
+  // Estado do Modal de Confirmação de Reversão de Versão
+  const [revertingVersao, setRevertingVersao] = useState<ModeloHistoricoVersao | null>(null)
+  const [revertingLoading, setRevertingLoading] = useState(false)
 
   // Estado do Quadro "Gerar Novo Contrato"
   const [selectedFranqueadoId, setSelectedFranqueadoId] = useState<string>('')
@@ -153,9 +192,11 @@ export default function VersaoContratos() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [modelosList, franqueadosList] = await Promise.all([
+      const [modelosList, franqueadosList, versoesList, geracoesList] = await Promise.all([
         modelosContratoService.getAll(),
         franqueadosService.getAll(),
+        modelosHistoricoService.getAll(),
+        historicoGeracaoService.getAll(),
       ])
 
       const map: Record<ModeloTipo, ModeloContrato | null> = {
@@ -170,7 +211,31 @@ export default function VersaoContratos() {
         }
       })
 
+      const mapVersoes: Record<ModeloTipo, ModeloHistoricoVersao[]> = {
+        COF: [],
+        'Pre-Contrato': [],
+        Contrato: [],
+      }
+      versoesList.forEach((v) => {
+        if (mapVersoes[v.tipo]) {
+          mapVersoes[v.tipo].push(v)
+        }
+      })
+
+      const mapGeracoes: Record<ModeloTipo, HistoricoGeracaoContrato[]> = {
+        COF: [],
+        'Pre-Contrato': [],
+        Contrato: [],
+      }
+      geracoesList.forEach((g) => {
+        if (mapGeracoes[g.tipo]) {
+          mapGeracoes[g.tipo].push(g)
+        }
+      })
+
       setModelos(map)
+      setHistoricoVersoes(mapVersoes)
+      setHistoricoGeracao(mapGeracoes)
       setFranqueados(franqueadosList)
     } catch (err: any) {
       toast({
@@ -362,7 +427,19 @@ export default function VersaoContratos() {
     try {
       setSavingModelo(true)
 
-      // Regra de incremento de versão por ano:
+      // 1. Grava cópia no histórico com a versão anterior (a versão que está sendo substituída)
+      const rotuloAnterior = formatModeloVersaoRotulo(editingModelo)
+      const historicoCriado = await modelosHistoricoService.create({
+        tipo: editingModelo.tipo,
+        modelo_id: editingModelo.id,
+        titulo: editingModelo.titulo || '',
+        texto: editingModelo.texto || '',
+        versao: editingModelo.versao ?? 1,
+        ano_versao: editingModelo.ano_versao ?? 2026,
+        rotulo_versao: rotuloAnterior,
+      })
+
+      // 2. Regra de incremento de versão por ano:
       // Toda vez que o usuário salvar uma edição de modelo, a versão é incrementada
       // e o ano utilizado é o ano corrente na data da edição.
       const { versao: proximaVersao, ano_versao: proximoAno } = computeNextModeloVersao(
@@ -382,11 +459,16 @@ export default function VersaoContratos() {
         [updated.tipo]: updated,
       }))
 
+      setHistoricoVersoes((prev) => ({
+        ...prev,
+        [updated.tipo]: [historicoCriado, ...(prev[updated.tipo] || [])],
+      }))
+
       const rotuloNovo = formatModeloVersaoRotulo(updated)
 
       toast({
         title: 'Modelo atualizado com sucesso!',
-        description: `Nova versão gerada: ${rotuloNovo}.`,
+        description: `Nova versão gerada: ${rotuloNovo}. A versão anterior (${rotuloAnterior}) foi arquivada no Histórico de Versões.`,
       })
       setEditingModelo(null)
     } catch (err: any) {
@@ -400,8 +482,71 @@ export default function VersaoContratos() {
     }
   }
 
+  // Reverter modelo para uma versão anterior do histórico
+  const handleConfirmReverter = async () => {
+    if (!revertingVersao) return
+    const modeloAtivo = modelos[revertingVersao.tipo]
+    if (!modeloAtivo) return
+
+    try {
+      setRevertingLoading(true)
+
+      // 1. Grava a versão ativa anterior no histórico antes de sobrescrever
+      const rotuloAtivoAnterior = formatModeloVersaoRotulo(modeloAtivo)
+      const historicoCriado = await modelosHistoricoService.create({
+        tipo: modeloAtivo.tipo,
+        modelo_id: modeloAtivo.id,
+        titulo: modeloAtivo.titulo || '',
+        texto: modeloAtivo.texto || '',
+        versao: modeloAtivo.versao ?? 1,
+        ano_versao: modeloAtivo.ano_versao ?? 2026,
+        rotulo_versao: rotuloAtivoAnterior,
+      })
+
+      // 2. A reversão também cria uma nova versão numérica ativa, seguindo a regra de incremento normal
+      const { versao: proximaVersao, ano_versao: proximoAno } = computeNextModeloVersao(
+        modeloAtivo.versao,
+        modeloAtivo.ano_versao,
+      )
+
+      const updated = await modelosContratoService.update(modeloAtivo.id, {
+        titulo: revertingVersao.titulo || modeloAtivo.titulo || '',
+        texto: revertingVersao.texto || '',
+        versao: proximaVersao,
+        ano_versao: proximoAno,
+      })
+
+      setModelos((prev) => ({
+        ...prev,
+        [updated.tipo]: updated,
+      }))
+
+      setHistoricoVersoes((prev) => ({
+        ...prev,
+        [updated.tipo]: [historicoCriado, ...(prev[updated.tipo] || [])],
+      }))
+
+      const rotuloNovo = formatModeloVersaoRotulo(updated)
+
+      toast({
+        title: 'Modelo revertido com sucesso!',
+        description: `O conteúdo da versão ${revertingVersao.rotulo_versao || 'anterior'} foi restaurado e ativado como ${rotuloNovo}.`,
+      })
+
+      setRevertingVersao(null)
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao reverter modelo',
+        description: err?.message || 'Não foi possível restaurar a versão selecionada.',
+      })
+    } finally {
+      setRevertingLoading(false)
+    }
+  }
+
   // Gerar PDF
-  const handleGeneratePdf = () => {
+  const handleGeneratePdf = async () => {
     if (!modeloAtual) {
       toast({
         variant: 'destructive',
@@ -437,6 +582,7 @@ export default function VersaoContratos() {
         anexoIiImagemDataUrl: cofAnexoIiImagem,
       })
 
+      // Salva o PDF no dispositivo
       doc.save(filename)
 
       setLastGeneratedPdf({
@@ -444,9 +590,29 @@ export default function VersaoContratos() {
         timestamp: new Date(),
       })
 
+      // Registra o Histórico de Geração apenas após a geração do PDF com sucesso
+      try {
+        const novaGeracao = await historicoGeracaoService.create({
+          tipo: activeTab,
+          franqueado_id: selectedFranqueado?.id,
+          franqueado_nome: selectedFranqueado?.nome || 'Não informado',
+          rotulo_versao: versaoRotulo,
+          versao: modeloAtual.versao ?? 1,
+          ano_versao: modeloAtual.ano_versao ?? 2026,
+          nome_arquivo: filename,
+        })
+
+        setHistoricoGeracao((prev) => ({
+          ...prev,
+          [activeTab]: [novaGeracao, ...(prev[activeTab] || [])],
+        }))
+      } catch (errHist) {
+        console.warn('Não foi possível gravar registro no Histórico de Geração:', errHist)
+      }
+
       toast({
         title: 'PDF gerado com sucesso!',
-        description: `Arquivo ${filename} baixado no seu dispositivo.`,
+        description: `Arquivo ${filename} baixado e registrado no histórico de geração.`,
       })
     } catch (err: any) {
       toast({
@@ -729,6 +895,248 @@ export default function VersaoContratos() {
                       </div>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* HISTÓRICO DE VERSÕES */}
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="bg-slate-50/70 border-b border-slate-100 pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                        <History className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          Histórico de Versões — {tab.label}
+                          <Badge variant="outline" className="text-xs font-mono font-medium">
+                            {historicoVersoes[tab.tipo]?.length || 0}{' '}
+                            {(historicoVersoes[tab.tipo]?.length || 0) === 1
+                              ? 'versão anterior'
+                              : 'versões anteriores'}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500">
+                          Rastreabilidade das versões anteriores. Você pode visualizar o texto na
+                          íntegra ou reverter para restaurar uma versão como ativa.
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 space-y-3">
+                  {/* Item em destaque: Versão Ativa Atual */}
+                  <div className="p-3.5 rounded-xl border-2 border-amber-400 bg-amber-50/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <span className="p-2 rounded-lg bg-amber-500 text-slate-950 font-bold shrink-0">
+                        <Check className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-slate-900">{rotuloVersao}</span>
+                          <Badge className="bg-amber-600 text-white font-semibold text-[10px] uppercase tracking-wider">
+                            Versão Ativa Atual
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          {m?.titulo || tab.subtitulo} • Atualizado em{' '}
+                          {m?.updated ? formatDateBR(m.updated) : 'Data não registrada'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleOpenEditModelo}
+                        className="text-xs h-8 border-amber-300 bg-white hover:bg-amber-100 text-amber-950 gap-1.5"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                        Editar Ativa
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Lista de Versões Anteriores */}
+                  {historicoVersoes[tab.tipo]?.length > 0 ? (
+                    <div className="space-y-2.5 pt-1">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 px-1">
+                        Versões Anteriores Arquivadas:
+                      </div>
+                      <div className="space-y-2">
+                        {historicoVersoes[tab.tipo].map((v) => (
+                          <div
+                            key={v.id}
+                            className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          >
+                            <div className="flex items-start sm:items-center gap-3">
+                              <span className="p-2 rounded-lg bg-slate-100 text-slate-600 shrink-0">
+                                <Clock className="w-4 h-4" />
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-sm text-slate-900 font-mono">
+                                    {v.rotulo_versao ||
+                                      formatModeloVersaoRotulo({
+                                        tipo: v.tipo,
+                                        versao: v.versao,
+                                        ano_versao: v.ano_versao,
+                                      })}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] text-slate-600 border-slate-300"
+                                  >
+                                    Arquivada
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {v.titulo || 'Sem título'} • Arquivada em{' '}
+                                  {formatDateBR(v.created)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setViewingVersao(v)}
+                                className="text-xs h-8 gap-1.5 text-slate-700 hover:text-slate-900"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                Visualizar
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setRevertingVersao(v)}
+                                className="text-xs h-8 border-amber-300 bg-amber-50/70 hover:bg-amber-100 text-amber-900 gap-1.5 font-medium"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                                Reverter
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                      <p className="text-xs text-slate-500">
+                        Nenhuma versão anterior arquivada ainda para este modelo.
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Ao editar e salvar alterações do modelo, a versão que está sendo substituída
+                        será gravada automaticamente aqui.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* HISTÓRICO DE GERAÇÃO */}
+              <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="bg-slate-50/70 border-b border-slate-100 pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-600 flex items-center justify-center">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          Histórico de Geração — {tab.label}
+                          <Badge variant="outline" className="text-xs font-mono font-medium">
+                            {historicoGeracao[tab.tipo]?.length || 0}{' '}
+                            {(historicoGeracao[tab.tipo]?.length || 0) === 1
+                              ? 'geração registrada'
+                              : 'gerações registradas'}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500">
+                          Registro de todos os PDFs gerados com sucesso para o modelo de {tab.label}
+                          .
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 space-y-3">
+                  {historicoGeracao[tab.tipo]?.length > 0 ? (
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                      {historicoGeracao[tab.tipo].map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-xs sm:text-sm text-slate-900">
+                                {item.franqueado_nome || 'Franqueado não identificado'}
+                              </span>
+                              <Badge className="bg-slate-900 text-amber-300 font-mono text-[11px] px-2 py-0.5">
+                                {item.rotulo_versao ||
+                                  formatModeloVersaoRotulo({
+                                    tipo: item.tipo,
+                                    versao: item.versao,
+                                    ano_versao: item.ano_versao,
+                                  })}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200"
+                              >
+                                PDF Gerado
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                {formatDateBR(item.created)}
+                              </span>
+                              {item.nome_arquivo && (
+                                <span className="font-mono text-[11px] text-slate-600 truncate max-w-xs">
+                                  {item.nome_arquivo}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                            {/* Regerar / Baixar novamente se franqueado e modelo disponíveis */}
+                            {item.franqueado_id && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedFranqueadoId(item.franqueado_id || '')
+                                  toast({
+                                    title: 'Franqueado selecionado no gerador',
+                                    description: `Unidade "${item.franqueado_nome}" carregada no formulário de geração.`,
+                                  })
+                                }}
+                                className="text-xs h-8 border-slate-300 hover:bg-slate-100 text-slate-700"
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1 text-slate-500" />
+                                Carregar no Gerador
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                      <p className="text-xs text-slate-500">
+                        Nenhum PDF gerado até o momento para este tipo de contrato.
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Cada vez que um contrato for emitido através do botão "Gerar PDF", o
+                        registro será gravado aqui automaticamente.
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1333,6 +1741,132 @@ export default function VersaoContratos() {
             >
               <Save className="w-4 h-4" />
               {savingModelo ? 'Salvando...' : 'Salvar Alterações'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 2: VISUALIZAR VERSÃO ANTERIOR (MODO LEITURA) */}
+      <Dialog
+        open={!!viewingVersao}
+        onOpenChange={(open) => {
+          if (!open) setViewingVersao(null)
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6">
+          <DialogHeader className="border-b pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Eye className="w-5 h-5 text-slate-600" />
+                Visualizar Versão Arquivada — {viewingVersao?.rotulo_versao}
+              </DialogTitle>
+              {viewingVersao && (
+                <Badge variant="outline" className="font-mono text-xs self-start sm:self-auto">
+                  Arquivado em {formatDateBR(viewingVersao.created)}
+                </Badge>
+              )}
+            </div>
+            <DialogDescription className="text-xs text-slate-500 mt-1">
+              Visualização em modo somente leitura do modelo arquivado. Para restaurar este texto
+              como o modelo ativo atual, clique no botão "Reverter para esta Versão".
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-3">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-700">Título do Documento</Label>
+              <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900">
+                {viewingVersao?.titulo || 'Sem título registrado'}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Texto Integral do Modelo
+                </Label>
+                <span className="text-[11px] font-mono text-slate-500">
+                  {viewingVersao?.texto?.length || 0} caracteres
+                </span>
+              </div>
+              <div className="border border-slate-200 rounded-lg bg-slate-50/70 p-4 font-mono text-xs text-slate-800 leading-relaxed whitespace-pre-wrap max-h-[500px] overflow-y-auto">
+                {viewingVersao?.texto || 'Nenhum texto registrado nesta versão.'}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t pt-3 flex items-center justify-between">
+            <Button type="button" variant="outline" onClick={() => setViewingVersao(null)}>
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const target = viewingVersao
+                setViewingVersao(null)
+                if (target) {
+                  setRevertingVersao(target)
+                }
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold gap-1.5"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reverter para esta Versão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 3: CONFIRMAR REVERSÃO DE VERSÃO */}
+      <Dialog
+        open={!!revertingVersao}
+        onOpenChange={(open) => {
+          if (!open) setRevertingVersao(null)
+        }}
+      >
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-amber-600" />
+              Confirmar Reversão de Modelo
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 space-y-2 pt-2">
+              <p>
+                Deseja realmente restaurar o texto e título de{' '}
+                <strong className="text-slate-900 font-mono">
+                  {revertingVersao?.rotulo_versao || 'versão selecionada'}
+                </strong>{' '}
+                como o modelo ativo de{' '}
+                <strong className="text-slate-900">
+                  {revertingVersao ? getModeloTipoDisplay(revertingVersao.tipo) : ''}
+                </strong>
+                ?
+              </p>
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                <strong>Regra de Versionamento:</strong> A versão ativa atual será salva no
+                histórico antes da restauração, e uma nova versão ativa será criada e incrementada
+                com o conteúdo restaurado. Nenhuma versão anterior é perdida.
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="pt-4 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRevertingVersao(null)}
+              disabled={revertingLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmReverter}
+              disabled={revertingLoading}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold gap-1.5"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {revertingLoading ? 'Revertendo...' : 'Confirmar e Restaurar'}
             </Button>
           </DialogFooter>
         </DialogContent>

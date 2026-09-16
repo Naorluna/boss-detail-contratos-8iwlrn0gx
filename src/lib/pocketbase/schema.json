@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T19:44:25.398Z",
+  "generatedAt": "2026-09-16T19:47:08.413Z",
   "collections": [
     {
       "name": "users",
@@ -394,6 +394,152 @@
         }
       ],
       "indexes": ["CREATE UNIQUE INDEX idx_modelos_contrato_tipo ON modelos_contrato (tipo)"]
+    },
+    {
+      "name": "modelos_historico_versoes",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "tipo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "modelo_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "texto",
+          "type": "editor",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ano_versao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rotulo_versao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_modelos_historico_tipo ON modelos_historico_versoes (tipo)",
+        "CREATE INDEX idx_modelos_historico_created ON modelos_historico_versoes (created DESC)"
+      ]
+    },
+    {
+      "name": "historico_geracao_contratos",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "tipo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "franqueado_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "franqueado_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rotulo_versao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ano_versao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nome_arquivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_hist_geracao_tipo ON historico_geracao_contratos (tipo)",
+        "CREATE INDEX idx_hist_geracao_created ON historico_geracao_contratos (created DESC)"
+      ]
     }
   ]
 }

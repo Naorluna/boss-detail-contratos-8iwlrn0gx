@@ -8,6 +8,8 @@ import type {
   ContractStatus,
   ModeloContrato,
   ModeloTipo,
+  ModeloHistoricoVersao,
+  HistoricoGeracaoContrato,
 } from '@/types'
 import { STANDARD_DOCUMENT_TEMPLATE } from '@/types'
 
@@ -253,5 +255,79 @@ export const modelosContratoService = {
       ano_versao: 2026,
       ...data,
     })
+  },
+}
+
+export const modelosHistoricoService = {
+  async getByTipo(tipo: ModeloTipo): Promise<ModeloHistoricoVersao[]> {
+    try {
+      return await pb.collection('modelos_historico_versoes').getFullList<ModeloHistoricoVersao>({
+        filter: `tipo = "${tipo}"`,
+        sort: '-created',
+      })
+    } catch (_) {
+      return []
+    }
+  },
+
+  async getAll(): Promise<ModeloHistoricoVersao[]> {
+    try {
+      return await pb.collection('modelos_historico_versoes').getFullList<ModeloHistoricoVersao>({
+        sort: '-created',
+      })
+    } catch (_) {
+      return []
+    }
+  },
+
+  async create(data: {
+    tipo: ModeloTipo
+    modelo_id?: string
+    titulo?: string
+    texto?: string
+    versao?: number
+    ano_versao?: number
+    rotulo_versao?: string
+  }): Promise<ModeloHistoricoVersao> {
+    return await pb.collection('modelos_historico_versoes').create<ModeloHistoricoVersao>(data)
+  },
+}
+
+export const historicoGeracaoService = {
+  async getByTipo(tipo: ModeloTipo): Promise<HistoricoGeracaoContrato[]> {
+    try {
+      return await pb
+        .collection('historico_geracao_contratos')
+        .getFullList<HistoricoGeracaoContrato>({
+          filter: `tipo = "${tipo}"`,
+          sort: '-created',
+        })
+    } catch (_) {
+      return []
+    }
+  },
+
+  async getAll(): Promise<HistoricoGeracaoContrato[]> {
+    try {
+      return await pb
+        .collection('historico_geracao_contratos')
+        .getFullList<HistoricoGeracaoContrato>({
+          sort: '-created',
+        })
+    } catch (_) {
+      return []
+    }
+  },
+
+  async create(data: {
+    tipo: ModeloTipo
+    franqueado_id?: string
+    franqueado_nome?: string
+    rotulo_versao?: string
+    versao?: number
+    ano_versao?: number
+    nome_arquivo?: string
+  }): Promise<HistoricoGeracaoContrato> {
+    return await pb.collection('historico_geracao_contratos').create<HistoricoGeracaoContrato>(data)
   },
 }

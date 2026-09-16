@@ -63,6 +63,26 @@ export interface ModeloContrato extends RecordModel {
   ano_versao?: number
 }
 
+export interface ModeloHistoricoVersao extends RecordModel {
+  tipo: ModeloTipo
+  modelo_id?: string
+  titulo?: string
+  texto?: string
+  versao?: number
+  ano_versao?: number
+  rotulo_versao?: string
+}
+
+export interface HistoricoGeracaoContrato extends RecordModel {
+  tipo: ModeloTipo
+  franqueado_id?: string
+  franqueado_nome?: string
+  rotulo_versao?: string
+  versao?: number
+  ano_versao?: number
+  nome_arquivo?: string
+}
+
 /**
  * Retorna o nome amigável do tipo de modelo conforme padrão exigido:
  * COF -> 'COF', Pre-Contrato -> 'Pré-Contrato', Contrato -> 'Contrato'
