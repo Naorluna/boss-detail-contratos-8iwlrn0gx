@@ -598,23 +598,23 @@ export default function DocumentoEditor() {
           {allowsNaoAplicavel && (
             <Button
               size="sm"
-              variant={isNaoAplicavel ? 'outline' : 'secondary'}
+              variant={isNaoAplicavel ? 'outline' : 'default'}
               onClick={() => setConfirmNaoAplicavelOpen(true)}
               disabled={savingNaoAplicavel}
               className={`text-xs font-semibold gap-1.5 ${
                 isNaoAplicavel
-                  ? 'border-slate-300 text-slate-700 hover:bg-slate-100'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                  ? 'border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100'
+                  : 'bg-slate-800 hover:bg-slate-900 text-white'
               }`}
             >
               {savingNaoAplicavel ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : isNaoAplicavel ? (
-                <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
+                <RotateCcw className="w-3.5 h-3.5 text-emerald-700" />
               ) : (
-                <Ban className="w-3.5 h-3.5 text-slate-600" />
+                <Ban className="w-3.5 h-3.5 text-white" />
               )}
-              {isNaoAplicavel ? 'Desmarcar Não aplicável' : 'Não aplicável'}
+              {isNaoAplicavel ? 'Desmarcar Não aplicável' : 'Marcar como Não aplicável'}
             </Button>
           )}
 
@@ -749,18 +749,32 @@ export default function DocumentoEditor() {
 
             {/* Aviso quando marcado como Não aplicável */}
             {isNaoAplicavel && (
-              <div className="max-w-md p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 flex items-start gap-2.5">
-                <Ban className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-semibold text-slate-800">
-                    Esta etapa está marcada como Não aplicável
-                  </p>
-                  <p className="text-[11px] leading-relaxed text-slate-500">
-                    O status desta etapa é exibido como &quot;Não aplicável&quot; em cinza e a data
-                    não é exigida. Você ainda pode salvar uma data acima ou clicar em
-                    &quot;Desmarcar Não aplicável&quot; a qualquer momento.
-                  </p>
+              <div className="max-w-md p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/70 text-xs text-emerald-900 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <Ban className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-emerald-950">
+                      Esta etapa está marcada como Não aplicável
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-emerald-800">
+                      O status desta etapa é exibido como &quot;Não aplicável&quot; em verde e a
+                      data não é exigida. Você ainda pode salvar uma data acima ou desmarcar a
+                      qualquer momento.
+                    </p>
+                  </div>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmNaoAplicavelOpen(true)}
+                  disabled={savingNaoAplicavel}
+                  className="shrink-0 h-7 px-2 text-[11px] font-semibold border-emerald-300 text-emerald-900 hover:bg-emerald-100 gap-1"
+                >
+                  <RotateCcw className="w-3 h-3 text-emerald-700" />
+                  <span>Desmarcar</span>
+                </Button>
               </div>
             )}
           </CardContent>

@@ -40,7 +40,7 @@ export function etapaPermiteNaoAplicavel(tipo?: ContractType | string): boolean 
 /**
  * Deriva o status exibido do contrato:
  * - Se for uma etapa que permite "Não aplicável" e estiver marcada como nao_aplicavel:
- *     - "Não aplicável" (badge cinza neutro)
+ *     - "Não aplicável" (badge verde, mesmo estilo de Assinado)
  * - Para etapas apenas de data ("Inauguração", "Pagamento da Taxa de Franquia", "Busca do Ponto", "Abertura do CNPJ"):
  *     - "Realizada" se houver data informada (data_inicio, data_inauguracao ou franqueado.data_inauguracao)
  *     - "Pendente" se não houver data
@@ -84,7 +84,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
       return (
         <span
           className={cn(
-            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300 shadow-xs',
+            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm',
             className,
           )}
         >
