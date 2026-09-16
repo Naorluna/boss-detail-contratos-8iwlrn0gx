@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T20:08:53.222Z",
+  "generatedAt": "2026-09-16T20:16:39.927Z",
   "collections": [
     {
       "name": "users",
@@ -207,6 +207,12 @@
         {
           "name": "data_inauguracao",
           "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nao_aplicavel",
+          "type": "bool",
           "required": false,
           "system": false
         }

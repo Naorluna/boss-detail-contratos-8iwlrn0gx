@@ -131,6 +131,7 @@ export const contratosService = {
     data_assinatura?: string | null
     data_envio?: string | null
     data_inauguracao?: string | null
+    nao_aplicavel?: boolean
     createDocWithTemplate?: boolean
   }): Promise<Contrato> {
     const { createDocWithTemplate, ...rest } = data

@@ -21,7 +21,12 @@ import { contratosService } from '@/services/dataService'
 import type { Contrato, Franqueado } from '@/types'
 import { getContratoExpiryInfo } from '@/types'
 import { formatDateBR, formatDateInput, formatVigencia5Anos } from '@/lib/formatters'
-import { StatusBadge, getStatusExibido, isEtapaSomenteData } from '@/components/StatusBadge'
+import {
+  StatusBadge,
+  getStatusExibido,
+  isEtapaSomenteData,
+  etapaPermiteNaoAplicavel,
+} from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,6 +41,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Ban, RotateCcw } from 'lucide-react'
 
 export default function DocumentoEditor() {
   const { contratoId } = useParams<{ contratoId: string }>()
@@ -62,6 +68,8 @@ export default function DocumentoEditor() {
   // Data de etapas somente data state (Inauguração, Taxa de Franquia, Busca do Ponto, Abertura do CNPJ)
   const [dataEtapa, setDataEtapa] = useState<string>('')
   const [savingDataEtapa, setSavingDataEtapa] = useState(false)
+  const [savingNaoAplicavel, setSavingNaoAplicavel] = useState(false)
+  const [confirmNaoAplicavelOpen, setConfirmNaoAplicavelOpen] = useState(false)
 
   // Selected file state (before save)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -190,6 +198,33 @@ export default function DocumentoEditor() {
       })
     } finally {
       setSavingDataAssinatura(false)
+    }
+  }
+
+  // Alternar "Não aplicável"
+  const handleToggleNaoAplicavel = async (novoValor: boolean) => {
+    if (!contrato) return
+    setSavingNaoAplicavel(true)
+    try {
+      const updated = await contratosService.update(contrato.id, {
+        nao_aplicavel: novoValor,
+      })
+      setContrato(updated)
+      setConfirmNaoAplicavelOpen(false)
+      toast({
+        title: novoValor ? 'Marcada como Não aplicável' : 'Etapa desmarcada',
+        description: novoValor
+          ? `A etapa "${contrato.tipo}" foi marcada como Não aplicável.`
+          : `A etapa "${contrato.tipo}" voltou para o status padrão.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao atualizar etapa',
+        description: err?.message || 'Falha ao salvar alteração.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingNaoAplicavel(false)
     }
   }
 
@@ -405,6 +440,8 @@ export default function DocumentoEditor() {
   )
 
   const isEtapaData = isEtapaSomenteData(contrato.tipo)
+  const allowsNaoAplicavel = etapaPermiteNaoAplicavel(contrato.tipo)
+  const isNaoAplicavel = Boolean(allowsNaoAplicavel && contrato.nao_aplicavel)
 
   // Metadados para as etapas apenas de data
   const metadataEtapaData: Record<
@@ -558,6 +595,29 @@ export default function DocumentoEditor() {
             Voltar
           </Button>
 
+          {allowsNaoAplicavel && (
+            <Button
+              size="sm"
+              variant={isNaoAplicavel ? 'outline' : 'secondary'}
+              onClick={() => setConfirmNaoAplicavelOpen(true)}
+              disabled={savingNaoAplicavel}
+              className={`text-xs font-semibold gap-1.5 ${
+                isNaoAplicavel
+                  ? 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+              }`}
+            >
+              {savingNaoAplicavel ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : isNaoAplicavel ? (
+                <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
+              ) : (
+                <Ban className="w-3.5 h-3.5 text-slate-600" />
+              )}
+              {isNaoAplicavel ? 'Desmarcar Não aplicável' : 'Não aplicável'}
+            </Button>
+          )}
+
           {!isEtapaData && (
             <>
               <Button
@@ -658,7 +718,9 @@ export default function DocumentoEditor() {
                       </strong>
                     </span>
                   ) : (
-                    <span className="italic text-slate-400">Não registrada</span>
+                    <span className="italic text-slate-400">
+                      {isNaoAplicavel ? 'Dispensada (Não aplicável)' : 'Não registrada'}
+                    </span>
                   )}
                 </div>
 
@@ -684,6 +746,23 @@ export default function DocumentoEditor() {
                 </Button>
               </div>
             </div>
+
+            {/* Aviso quando marcado como Não aplicável */}
+            {isNaoAplicavel && (
+              <div className="max-w-md p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 flex items-start gap-2.5">
+                <Ban className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-slate-800">
+                    Esta etapa está marcada como Não aplicável
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-500">
+                    O status desta etapa é exibido como &quot;Não aplicável&quot; em cinza e a data
+                    não é exigida. Você ainda pode salvar uma data acima ou clicar em
+                    &quot;Desmarcar Não aplicável&quot; a qualquer momento.
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -1043,6 +1122,47 @@ export default function DocumentoEditor() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Modal de confirmação para Não aplicável */}
+      {allowsNaoAplicavel && (
+        <Dialog open={confirmNaoAplicavelOpen} onOpenChange={setConfirmNaoAplicavelOpen}>
+          <DialogContent className="max-w-md bg-white">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Ban className="w-4 h-4 text-slate-600" />
+                {isNaoAplicavel ? 'Desmarcar "Não aplicável"?' : 'Marcar como "Não aplicável"?'}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-600 pt-1">
+                {isNaoAplicavel
+                  ? `Deseja retornar a etapa "${contrato.tipo}" para o fluxo normal? O status voltará a ser derivado do lançamento da data.`
+                  : `Deseja marcar a etapa "${contrato.tipo}" como Não aplicável para esta unidade? A data continuará podendo ser preenchida caso necessário.`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmNaoAplicavelOpen(false)}
+                disabled={savingNaoAplicavel}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleToggleNaoAplicavel(!isNaoAplicavel)}
+                disabled={savingNaoAplicavel}
+                className="text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white"
+              >
+                {savingNaoAplicavel ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                {isNaoAplicavel ? 'Confirmar e Desmarcar' : 'Confirmar "Não aplicável"'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Confirmation modal to remove attached document */}

@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { Contrato, ContractStatus, ContractType } from '@/types'
 
-export type DisplayStatus = ContractStatus | 'Realizada'
+export type DisplayStatus = ContractStatus | 'Realizada' | 'Não aplicável'
 
 /**
  * Tipos de etapa que são apenas de data (sem documento):
@@ -24,7 +24,23 @@ export function isEtapaSomenteData(tipo?: ContractType | string): boolean {
 }
 
 /**
+ * Apenas estas duas etapas suportam ser marcadas como "Não aplicável":
+ * - Pagamento da Taxa de Franquia
+ * - Busca do Ponto
+ */
+export const ETAPAS_PERMITEM_NAO_APLICAVEL: ContractType[] = [
+  'Pagamento da Taxa de Franquia',
+  'Busca do Ponto',
+]
+
+export function etapaPermiteNaoAplicavel(tipo?: ContractType | string): boolean {
+  return ETAPAS_PERMITEM_NAO_APLICAVEL.includes(tipo as ContractType)
+}
+
+/**
  * Deriva o status exibido do contrato:
+ * - Se for uma etapa que permite "Não aplicável" e estiver marcada como nao_aplicavel:
+ *     - "Não aplicável" (badge cinza neutro)
  * - Para etapas apenas de data ("Inauguração", "Pagamento da Taxa de Franquia", "Busca do Ponto", "Abertura do CNPJ"):
  *     - "Realizada" se houver data informada (data_inicio, data_inauguracao ou franqueado.data_inauguracao)
  *     - "Pendente" se não houver data
@@ -33,6 +49,10 @@ export function isEtapaSomenteData(tipo?: ContractType | string): boolean {
  */
 export function getStatusExibido(contrato?: Contrato | null, overrideData?: string): DisplayStatus {
   if (!contrato) return 'Pendente'
+
+  if (etapaPermiteNaoAplicavel(contrato.tipo) && contrato.nao_aplicavel) {
+    return 'Não aplicável'
+  }
 
   if (isEtapaSomenteData(contrato.tipo)) {
     let rawDate = overrideData
@@ -54,12 +74,23 @@ export function getStatusExibido(contrato?: Contrato | null, overrideData?: stri
 }
 
 interface StatusBadgeProps {
-  status: DisplayStatus | ContractStatus
+  status: DisplayStatus | ContractStatus | string
   className?: string
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
   switch (status) {
+    case 'Não aplicável':
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300 shadow-xs',
+            className,
+          )}
+        >
+          Não aplicável
+        </span>
+      )
     case 'Realizada':
       return (
         <span

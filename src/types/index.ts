@@ -45,6 +45,7 @@ export interface Contrato extends RecordModel {
   data_envio?: string
   data_inauguracao?: string
   documento_assinado?: string
+  nao_aplicavel?: boolean
   expand?: {
     franqueado?: Franqueado
   }
