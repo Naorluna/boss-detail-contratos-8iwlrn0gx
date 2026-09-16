@@ -186,6 +186,11 @@ export default function ContratoForm() {
                   <SelectContent>
                     <SelectItem value="Recebimento da COF">Recebimento da COF</SelectItem>
                     <SelectItem value="Pré-Contrato">Pré-Contrato</SelectItem>
+                    <SelectItem value="Pagamento da Taxa de Franquia">
+                      Pagamento da Taxa de Franquia
+                    </SelectItem>
+                    <SelectItem value="Busca do Ponto">Busca do Ponto</SelectItem>
+                    <SelectItem value="Abertura do CNPJ">Abertura do CNPJ</SelectItem>
                     <SelectItem value="Contrato">Contrato</SelectItem>
                     <SelectItem value="Inauguração">Inauguração</SelectItem>
                   </SelectContent>

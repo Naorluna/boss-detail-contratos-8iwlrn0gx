@@ -1,30 +1,51 @@
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import type { Contrato, ContractStatus } from '@/types'
+import type { Contrato, ContractStatus, ContractType } from '@/types'
 
 export type DisplayStatus = ContractStatus | 'Realizada'
 
 /**
+ * Tipos de etapa que são apenas de data (sem documento):
+ * - Inauguração
+ * - Pagamento da Taxa de Franquia
+ * - Busca do Ponto
+ * - Abertura do CNPJ
+ */
+export const ETAPAS_SOMENTE_DATA: ContractType[] = [
+  'Inauguração',
+  'Pagamento da Taxa de Franquia',
+  'Busca do Ponto',
+  'Abertura do CNPJ',
+]
+
+export function isEtapaSomenteData(tipo?: ContractType | string): boolean {
+  return ETAPAS_SOMENTE_DATA.includes(tipo as ContractType)
+}
+
+/**
  * Deriva o status exibido do contrato:
- * - Para contratos do tipo "Inauguração":
- *     - "Realizada" se houver data de inauguração informada (data_inauguracao ou data_inicio ou no franqueado)
+ * - Para etapas apenas de data ("Inauguração", "Pagamento da Taxa de Franquia", "Busca do Ponto", "Abertura do CNPJ"):
+ *     - "Realizada" se houver data informada (data_inicio, data_inauguracao ou franqueado.data_inauguracao)
  *     - "Pendente" se não houver data
- * - Para os demais tipos de contratos:
+ * - Para os demais tipos de contratos (com documento):
  *     - Retorna o campo contrato.status
  */
-export function getStatusExibido(
-  contrato?: Contrato | null,
-  overrideDataInauguracao?: string,
-): DisplayStatus {
+export function getStatusExibido(contrato?: Contrato | null, overrideData?: string): DisplayStatus {
   if (!contrato) return 'Pendente'
 
-  if (contrato.tipo === 'Inauguração') {
-    const rawDate =
-      overrideDataInauguracao ??
-      (contrato.data_inauguracao ||
-        contrato.data_inicio ||
-        contrato.expand?.franqueado?.data_inauguracao)
+  if (isEtapaSomenteData(contrato.tipo)) {
+    let rawDate = overrideData
+    if (!rawDate) {
+      if (contrato.tipo === 'Inauguração') {
+        rawDate =
+          contrato.data_inauguracao ||
+          contrato.data_inicio ||
+          contrato.expand?.franqueado?.data_inauguracao
+      } else {
+        rawDate = contrato.data_inicio
+      }
+    }
     const hasDate = Boolean(rawDate && String(rawDate).trim())
     return hasDate ? 'Realizada' : 'Pendente'
   }

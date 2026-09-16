@@ -22,7 +22,7 @@ import type { Franqueado, Contrato, ContractType, ContractStatus } from '@/types
 import { getContratoExpiryInfo } from '@/types'
 import { formatDateBR, formatVigencia5Anos } from '@/lib/formatters'
 import { ContractCell } from '@/components/ContractCell'
-import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
+import { StatusBadge, getStatusExibido, isEtapaSomenteData } from '@/components/StatusBadge'
 import { useRealtime } from '@/hooks/use-realtime'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -155,7 +155,7 @@ export default function Index() {
           if (statusFilter === 'Assinado') {
             return c.status === 'Assinado' || getStatusExibido(c) === 'Realizada'
           }
-          if (c.tipo === 'Inauguração') {
+          if (isEtapaSomenteData(c.tipo)) {
             return getStatusExibido(c) === statusFilter
           }
           return c.status === statusFilter
@@ -328,6 +328,11 @@ export default function Index() {
                   <SelectItem value="todos">Todos os Tipos</SelectItem>
                   <SelectItem value="Recebimento da COF">Recebimento da COF</SelectItem>
                   <SelectItem value="Pré-Contrato">Pré-Contrato</SelectItem>
+                  <SelectItem value="Pagamento da Taxa de Franquia">
+                    Pagamento da Taxa de Franquia
+                  </SelectItem>
+                  <SelectItem value="Busca do Ponto">Busca do Ponto</SelectItem>
+                  <SelectItem value="Abertura do CNPJ">Abertura do CNPJ</SelectItem>
                   <SelectItem value="Contrato">Contrato</SelectItem>
                   <SelectItem value="Inauguração">Inauguração</SelectItem>
                 </SelectContent>{' '}
@@ -408,9 +413,12 @@ export default function Index() {
                       <th className="py-3.5 px-4 min-w-[200px]">Franqueados</th>
                       <th className="py-3.5 px-4 min-w-[150px]">Recebimento da COF</th>
                       <th className="py-3.5 px-4 min-w-[150px]">Pré-Contrato</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Pagamento da Taxa de Franquia</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Busca do Ponto</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Abertura do CNPJ</th>
                       <th className="py-3.5 px-4 min-w-[150px]">Contrato</th>
                       <th className="py-3.5 px-4 min-w-[150px]">Inauguração</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Vigência</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Vigência (Contrato)</th>
                       <th className="py-3.5 px-4 whitespace-nowrap">Alerta de Renovação</th>
                       <th className="py-3.5 px-4 text-right w-16">Ações</th>
                     </tr>
@@ -420,13 +428,15 @@ export default function Index() {
                       const fContracts = contractsByFranqueado.get(f.id) || {}
                       const cofContract = fContracts['Recebimento da COF']
                       const preContract = fContracts['Pré-Contrato']
+                      const taxaContract = fContracts['Pagamento da Taxa de Franquia']
+                      const pontoContract = fContracts['Busca do Ponto']
+                      const cnpjContract = fContracts['Abertura do CNPJ']
                       const mainContract = fContracts['Contrato']
                       const inaugContract = fContracts['Inauguração']
 
-                      // Determinar vigência e alerta a partir do Contrato Principal (ou contrato ativo com vigência)
-                      const targetContract =
-                        mainContract || preContract || cofContract || inaugContract
-                      const expiry = targetContract ? getContratoExpiryInfo(targetContract) : null
+                      // Determinar vigência e alerta a partir do Contrato Principal
+                      const targetContract = mainContract || preContract || cofContract
+                      const expiry = mainContract ? getContratoExpiryInfo(mainContract) : null
                       const vigenciaCalculada = targetContract?.data_assinatura
                         ? formatVigencia5Anos(targetContract.data_assinatura)
                         : null
@@ -469,7 +479,34 @@ export default function Index() {
                             />
                           </td>
 
-                          {/* 4. Contrato */}
+                          {/* 4. Pagamento da Taxa de Franquia */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Pagamento da Taxa de Franquia"
+                              contrato={taxaContract}
+                            />
+                          </td>
+
+                          {/* 5. Busca do Ponto */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Busca do Ponto"
+                              contrato={pontoContract}
+                            />
+                          </td>
+
+                          {/* 6. Abertura do CNPJ */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Abertura do CNPJ"
+                              contrato={cnpjContract}
+                            />
+                          </td>
+
+                          {/* 7. Contrato */}
                           <td className="py-3.5 px-4 align-top">
                             <ContractCell
                               franqueadoId={f.id}
@@ -478,7 +515,7 @@ export default function Index() {
                             />
                           </td>
 
-                          {/* 5. Inauguração */}
+                          {/* 8. Inauguração */}
                           <td className="py-3.5 px-4 align-top">
                             <ContractCell
                               franqueadoId={f.id}
@@ -586,6 +623,9 @@ export default function Index() {
                   const fContracts = contractsByFranqueado.get(f.id) || {}
                   const cofContract = fContracts['Recebimento da COF']
                   const preContract = fContracts['Pré-Contrato']
+                  const taxaContract = fContracts['Pagamento da Taxa de Franquia']
+                  const pontoContract = fContracts['Busca do Ponto']
+                  const cnpjContract = fContracts['Abertura do CNPJ']
                   const mainContract = fContracts['Contrato']
                   const inaugContract = fContracts['Inauguração']
 
@@ -643,6 +683,39 @@ export default function Index() {
                             franqueadoId={f.id}
                             tipo="Pré-Contrato"
                             contrato={preContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Pagamento da Taxa de Franquia
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Pagamento da Taxa de Franquia"
+                            contrato={taxaContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Busca do Ponto
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Busca do Ponto"
+                            contrato={pontoContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Abertura do CNPJ
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Abertura do CNPJ"
+                            contrato={cnpjContract}
                           />
                         </div>
 
@@ -710,10 +783,13 @@ export default function Index() {
                     <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                       <th className="py-3.5 px-4 min-w-[200px]">Franqueados</th>
                       <th className="py-3.5 px-4 min-w-[150px]">Recebimento da COF</th>
-                      <th className="py-3.5 px-4 min-w-[150px]">Pré-contrato</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Pré-Contrato</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Pagamento da Taxa de Franquia</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Busca do Ponto</th>
+                      <th className="py-3.5 px-4 min-w-[150px]">Abertura do CNPJ</th>
                       <th className="py-3.5 px-4 min-w-[150px]">Contrato</th>
                       <th className="py-3.5 px-4 min-w-[150px]">Inauguração</th>
-                      <th className="py-3.5 px-4 whitespace-nowrap">Vigência</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Vigência (Contrato)</th>
                       <th className="py-3.5 px-4 whitespace-nowrap">Alerta de Renovação</th>
                       <th className="py-3.5 px-4 text-right w-16">Ações</th>
                     </tr>
@@ -723,13 +799,15 @@ export default function Index() {
                       const fContracts = contractsByFranqueado.get(f.id) || {}
                       const cofContract = fContracts['Recebimento da COF']
                       const preContract = fContracts['Pré-Contrato']
+                      const taxaContract = fContracts['Pagamento da Taxa de Franquia']
+                      const pontoContract = fContracts['Busca do Ponto']
+                      const cnpjContract = fContracts['Abertura do CNPJ']
                       const mainContract = fContracts['Contrato']
                       const inaugContract = fContracts['Inauguração']
 
-                      // Determinar vigência e alerta a partir do Contrato Principal (ou contrato ativo com vigência)
-                      const targetContract =
-                        mainContract || preContract || cofContract || inaugContract
-                      const expiry = targetContract ? getContratoExpiryInfo(targetContract) : null
+                      // Determinar vigência e alerta a partir do Contrato Principal
+                      const targetContract = mainContract || preContract || cofContract
+                      const expiry = mainContract ? getContratoExpiryInfo(mainContract) : null
                       const vigenciaCalculada = targetContract?.data_assinatura
                         ? formatVigencia5Anos(targetContract.data_assinatura)
                         : null
@@ -772,7 +850,34 @@ export default function Index() {
                             />
                           </td>
 
-                          {/* 4. Contrato */}
+                          {/* 4. Pagamento da Taxa de Franquia */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Pagamento da Taxa de Franquia"
+                              contrato={taxaContract}
+                            />
+                          </td>
+
+                          {/* 5. Busca do Ponto */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Busca do Ponto"
+                              contrato={pontoContract}
+                            />
+                          </td>
+
+                          {/* 6. Abertura do CNPJ */}
+                          <td className="py-3.5 px-4 align-top">
+                            <ContractCell
+                              franqueadoId={f.id}
+                              tipo="Abertura do CNPJ"
+                              contrato={cnpjContract}
+                            />
+                          </td>
+
+                          {/* 7. Contrato */}
                           <td className="py-3.5 px-4 align-top">
                             <ContractCell
                               franqueadoId={f.id}
@@ -781,7 +886,7 @@ export default function Index() {
                             />
                           </td>
 
-                          {/* 5. Inauguração */}
+                          {/* 8. Inauguração */}
                           <td className="py-3.5 px-4 align-top">
                             <ContractCell
                               franqueadoId={f.id}
@@ -889,6 +994,9 @@ export default function Index() {
                   const fContracts = contractsByFranqueado.get(f.id) || {}
                   const cofContract = fContracts['Recebimento da COF']
                   const preContract = fContracts['Pré-Contrato']
+                  const taxaContract = fContracts['Pagamento da Taxa de Franquia']
+                  const pontoContract = fContracts['Busca do Ponto']
+                  const cnpjContract = fContracts['Abertura do CNPJ']
                   const mainContract = fContracts['Contrato']
                   const inaugContract = fContracts['Inauguração']
 
@@ -940,12 +1048,45 @@ export default function Index() {
 
                         <div>
                           <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
-                            Pré-contrato
+                            Pré-Contrato
                           </p>
                           <ContractCell
                             franqueadoId={f.id}
                             tipo="Pré-Contrato"
                             contrato={preContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Pagamento da Taxa de Franquia
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Pagamento da Taxa de Franquia"
+                            contrato={taxaContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Busca do Ponto
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Busca do Ponto"
+                            contrato={pontoContract}
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">
+                            Abertura do CNPJ
+                          </p>
+                          <ContractCell
+                            franqueadoId={f.id}
+                            tipo="Abertura do CNPJ"
+                            contrato={cnpjContract}
                           />
                         </div>
 

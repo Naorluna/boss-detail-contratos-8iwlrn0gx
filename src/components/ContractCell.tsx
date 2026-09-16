@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Clock, Plus, FileCheck2, Paperclip, Calendar, Pencil } from 'lucide-react'
-import { StatusBadge, getStatusExibido } from './StatusBadge'
+import { StatusBadge, getStatusExibido, isEtapaSomenteData } from './StatusBadge'
 import { getContratoExpiryInfo, type Contrato, type ContractType } from '@/types'
 import { formatDateBR, formatVigencia5Anos } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
   if (!contrato) {
     return (
       <div className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-        <span className="text-xs text-slate-400 font-medium mb-1">Sem contrato</span>
+        <span className="text-xs text-slate-400 font-medium mb-1">Sem etapa</span>
         <Button
           asChild
           variant="ghost"
@@ -33,14 +33,25 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
     )
   }
 
-  const isInauguracao = tipo === 'Inauguração'
+  // Se for uma das etapas que são puramente controle de data (sem documento):
+  if (isEtapaSomenteData(tipo)) {
+    const rawDate =
+      tipo === 'Inauguração'
+        ? contrato.data_inauguracao ||
+          contrato.data_inicio ||
+          contrato.expand?.franqueado?.data_inauguracao
+        : contrato.data_inicio
 
-  if (isInauguracao) {
-    const rawInaugDate =
-      contrato.data_inauguracao ||
-      contrato.data_inicio ||
-      contrato.expand?.franqueado?.data_inauguracao
-    const hasInaugDate = Boolean(rawInaugDate)
+    const hasDate = Boolean(rawDate)
+
+    const labelPorTipo: Record<string, string> = {
+      'Pagamento da Taxa de Franquia': 'Pagamento:',
+      'Busca do Ponto': 'Definição:',
+      'Abertura do CNPJ': 'Abertura:',
+      Inauguração: 'Inauguração:',
+    }
+
+    const labelEtapa = labelPorTipo[tipo] || 'Data:'
 
     return (
       <div className="p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-all shadow-xs">
@@ -50,10 +61,10 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
 
         <div className="space-y-0.5">
           <div className="text-[11px] font-medium leading-tight text-slate-600">
-            <span>Inauguração: </span>
-            {hasInaugDate ? (
+            <span>{labelEtapa} </span>
+            {hasDate ? (
               <span className="tabular-nums font-semibold text-slate-900">
-                {formatDateBR(rawInaugDate)}
+                {formatDateBR(rawDate)}
               </span>
             ) : (
               <span className="text-slate-400 italic">Não informada</span>
@@ -61,18 +72,18 @@ export const ContractCell: React.FC<ContractCellProps> = ({ franqueadoId, tipo, 
           </div>
         </div>
 
-        {/* Action link específico para Inauguração (sem Anexado / Sem anexo) */}
+        {/* Action link específico para etapas de data (sem Anexado / Sem anexo) */}
         <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
           <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
             <Calendar className="w-3 h-3 text-amber-500" />
-            {hasInaugDate ? 'Data gravada' : 'Sem data'}
+            {hasDate ? 'Data gravada' : 'Sem data'}
           </span>
 
           <Link
             to={`/documento/${contrato.id}`}
             className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-amber-600 transition-colors group"
           >
-            {hasInaugDate ? (
+            {hasDate ? (
               <>
                 <Pencil className="w-3 h-3 text-slate-400 group-hover:text-amber-600 transition-colors" />
                 <span>Editar data</span>

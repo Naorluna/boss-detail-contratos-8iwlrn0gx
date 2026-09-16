@@ -67,10 +67,13 @@ export const franqueadosService = {
       }
     }
 
-    // Automatically create the 4 standard contracts for this new franchisee
+    // Automatically create all 7 onboarding stages for this new franchisee
     const contractTypes: ContractType[] = [
       'Recebimento da COF',
       'Pré-Contrato',
+      'Pagamento da Taxa de Franquia',
+      'Busca do Ponto',
+      'Abertura do CNPJ',
       'Contrato',
       'Inauguração',
     ]

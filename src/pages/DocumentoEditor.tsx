@@ -21,7 +21,7 @@ import { contratosService } from '@/services/dataService'
 import type { Contrato, Franqueado } from '@/types'
 import { getContratoExpiryInfo } from '@/types'
 import { formatDateBR, formatDateInput, formatVigencia5Anos } from '@/lib/formatters'
-import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
+import { StatusBadge, getStatusExibido, isEtapaSomenteData } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -59,9 +59,9 @@ export default function DocumentoEditor() {
   const [dataEnvio, setDataEnvio] = useState<string>('')
   const [savingDataEnvio, setSavingDataEnvio] = useState(false)
 
-  // Data de inauguração state (para tipo Inauguração)
-  const [dataInauguracao, setDataInauguracao] = useState<string>('')
-  const [savingDataInauguracao, setSavingDataInauguracao] = useState(false)
+  // Data de etapas somente data state (Inauguração, Taxa de Franquia, Busca do Ponto, Abertura do CNPJ)
+  const [dataEtapa, setDataEtapa] = useState<string>('')
+  const [savingDataEtapa, setSavingDataEtapa] = useState(false)
 
   // Selected file state (before save)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -76,10 +76,12 @@ export default function DocumentoEditor() {
       setFranqueado(c.expand?.franqueado || null)
       setDataAssinatura(c.data_assinatura ? formatDateInput(c.data_assinatura) : '')
       setDataEnvio(c.data_envio ? formatDateInput(c.data_envio) : '')
-      // Prioridade: c.data_inauguracao ou c.data_inicio ou franqueado.data_inauguracao
-      const initialInaug =
-        c.data_inauguracao || c.data_inicio || c.expand?.franqueado?.data_inauguracao || ''
-      setDataInauguracao(initialInaug ? formatDateInput(initialInaug) : '')
+      // Prioridade: se for Inauguração, c.data_inauguracao ou c.data_inicio ou franqueado.data_inauguracao; senão c.data_inicio
+      const initialDate =
+        c.tipo === 'Inauguração'
+          ? c.data_inauguracao || c.data_inicio || c.expand?.franqueado?.data_inauguracao || ''
+          : c.data_inicio || ''
+      setDataEtapa(initialDate ? formatDateInput(initialDate) : '')
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar contrato',
@@ -191,33 +193,39 @@ export default function DocumentoEditor() {
     }
   }
 
-  // Salvar apenas a Data de Inauguração
-  const handleSaveDataInauguracao = async () => {
+  // Salvar data para etapas de controle de data (Inauguração, Taxa de Franquia, Busca do Ponto, Abertura do CNPJ)
+  const handleSaveDataEtapa = async () => {
     if (!contrato) return
-    setSavingDataInauguracao(true)
+    setSavingDataEtapa(true)
     try {
-      const isoDate = dataInauguracao ? new Date(dataInauguracao).toISOString() : ''
+      const isoDate = dataEtapa ? new Date(dataEtapa).toISOString() : ''
       const payload: Partial<Contrato> = {
-        data_inauguracao: isoDate,
         data_inicio: isoDate,
+      }
+      if (contrato.tipo === 'Inauguração') {
+        payload.data_inauguracao = isoDate
       }
       const updated = await contratosService.update(contrato.id, payload)
       setContrato(updated)
-      setDataInauguracao(updated.data_inauguracao ? formatDateInput(updated.data_inauguracao) : '')
+      const updatedDate =
+        updated.tipo === 'Inauguração'
+          ? updated.data_inauguracao || updated.data_inicio
+          : updated.data_inicio
+      setDataEtapa(updatedDate ? formatDateInput(updatedDate) : '')
       toast({
-        title: 'Data de inauguração salva!',
-        description: dataInauguracao
-          ? `Data definida para ${formatDateBR(updated.data_inauguracao)}.`
-          : 'Data de inauguração removida.',
+        title: 'Data salva com sucesso!',
+        description: dataEtapa
+          ? `Data definida para ${formatDateBR(updatedDate)}.`
+          : 'Data removida.',
       })
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar data de inauguração',
+        title: 'Erro ao salvar data',
         description: err?.message || 'Falha ao atualizar a data.',
         variant: 'destructive',
       })
     } finally {
-      setSavingDataInauguracao(false)
+      setSavingDataEtapa(false)
     }
   }
 
@@ -396,7 +404,63 @@ export default function DocumentoEditor() {
     contrato.documento_assinado && /\.(png|jpe?g|webp)$/i.test(contrato.documento_assinado),
   )
 
-  const isInauguracao = contrato.tipo === 'Inauguração'
+  const isEtapaData = isEtapaSomenteData(contrato.tipo)
+
+  // Metadados para as etapas apenas de data
+  const metadataEtapaData: Record<
+    string,
+    {
+      title: string
+      label: string
+      description: string
+      helper: string
+      currentRecordedDate?: string
+    }
+  > = {
+    'Pagamento da Taxa de Franquia': {
+      title: 'Data do Pagamento da Taxa',
+      label: 'Data do Pagamento da Taxa',
+      description:
+        'Lance ou atualize a data de pagamento da taxa de franquia (Day 1). Não existe documento para esta etapa.',
+      helper: 'Data em que o franqueado efetuou o pagamento da taxa de franquia.',
+      currentRecordedDate: contrato.data_inicio,
+    },
+    'Busca do Ponto': {
+      title: 'Data de Definição do Ponto',
+      label: 'Data de Definição do Ponto',
+      description:
+        'Lance ou atualize a data em que o ponto comercial da franquia foi definido ou aprovado. Não existe documento para esta etapa.',
+      helper: 'Data de conclusão do prazo de busca e aprovação do ponto comercial.',
+      currentRecordedDate: contrato.data_inicio,
+    },
+    'Abertura do CNPJ': {
+      title: 'Data de Abertura do CNPJ',
+      label: 'Data de Abertura do CNPJ',
+      description:
+        'Lance ou atualize a data de constituição/abertura do CNPJ da unidade franqueada. Não existe documento para esta etapa.',
+      helper: 'Data oficial de emissão do comprovante do CNPJ da unidade.',
+      currentRecordedDate: contrato.data_inicio,
+    },
+    Inauguração: {
+      title: 'Data de Inauguração',
+      label: 'Data de Inauguração',
+      description:
+        'Lance ou atualize a data prevista ou realizada de inauguração desta franquia. Não existe documento para esta etapa.',
+      helper: 'Data em que a unidade franqueada iniciou ou iniciará suas operações.',
+      currentRecordedDate:
+        contrato.data_inauguracao ||
+        contrato.data_inicio ||
+        contrato.expand?.franqueado?.data_inauguracao,
+    },
+  }
+
+  const metaCurrent = metadataEtapaData[contrato.tipo] || {
+    title: `Data - ${contrato.tipo}`,
+    label: `Data de ${contrato.tipo}`,
+    description: 'Lance ou atualize a data desta etapa. Não existe documento para este tipo.',
+    helper: 'Data referente a este marco do franqueado.',
+    currentRecordedDate: contrato.data_inicio,
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -427,12 +491,12 @@ export default function DocumentoEditor() {
             </h2>
             <StatusBadge status={getStatusExibido(contrato)} />
 
-            {expiry.isExpired ? (
+            {!isEtapaData && expiry.isExpired ? (
               <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 px-2.5 py-0.5 rounded-full shadow-xs">
                 <Clock className="w-3.5 h-3.5" />
                 Vencido
               </span>
-            ) : expiry.isAlert ? (
+            ) : !isEtapaData && expiry.isAlert ? (
               <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-300 animate-pulse">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
                 Faltam {expiry.monthsRemaining} meses para o vencimento
@@ -441,18 +505,18 @@ export default function DocumentoEditor() {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-            {isInauguracao ? (
+            {isEtapaData ? (
               <p>
-                {contrato.data_inauguracao || contrato.data_inicio ? (
+                {metaCurrent.currentRecordedDate ? (
                   <span className="flex items-center gap-1 text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                     <Calendar className="w-3 h-3 text-amber-600" />
-                    Inauguração prevista/realizada em{' '}
+                    {metaCurrent.label}:{' '}
                     <strong className="text-amber-900">
-                      {formatDateBR(contrato.data_inauguracao || contrato.data_inicio)}
+                      {formatDateBR(metaCurrent.currentRecordedDate)}
                     </strong>
                   </span>
                 ) : (
-                  <span className="italic text-slate-400">Data de inauguração não registrada</span>
+                  <span className="italic text-slate-400">Data não registrada</span>
                 )}
               </p>
             ) : (
@@ -494,7 +558,7 @@ export default function DocumentoEditor() {
             Voltar
           </Button>
 
-          {!isInauguracao && (
+          {!isEtapaData && (
             <>
               <Button
                 size="sm"
@@ -529,8 +593,8 @@ export default function DocumentoEditor() {
         </div>
       </div>
 
-      {isInauguracao ? (
-        /* Card Dedicado Apenas para Lançar Data de Inauguração */
+      {isEtapaData ? (
+        /* Card Dedicado Apenas para Lançar Data (sem upload de documentos) */
         <Card className="border-slate-200 bg-white shadow-xs rounded-xl overflow-hidden">
           <CardHeader className="p-6 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -539,11 +603,10 @@ export default function DocumentoEditor() {
               </div>
               <div>
                 <CardTitle className="text-base font-bold text-slate-900">
-                  Data de Inauguração
+                  {metaCurrent.title}
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  Lance ou atualize a data prevista ou realizada de inauguração desta franquia. Não
-                  existe documento para este tipo.
+                  {metaCurrent.description}
                 </CardDescription>
               </div>
             </div>
@@ -553,27 +616,27 @@ export default function DocumentoEditor() {
             <div className="max-w-md p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-4">
               <div className="space-y-1.5">
                 <Label
-                  htmlFor="data_inauguracao_input"
+                  htmlFor="data_etapa_input"
                   className="text-xs font-bold text-slate-800 flex items-center gap-1.5"
                 >
                   <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                  Data de Inauguração
+                  {metaCurrent.label}
                 </Label>
                 <div className="flex items-center gap-2">
                   <Input
-                    id="data_inauguracao_input"
+                    id="data_etapa_input"
                     type="date"
-                    value={dataInauguracao}
-                    onChange={(e) => setDataInauguracao(e.target.value)}
+                    value={dataEtapa}
+                    onChange={(e) => setDataEtapa(e.target.value)}
                     className="text-xs h-9 bg-white"
                   />
-                  {dataInauguracao && (
+                  {dataEtapa && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setDataInauguracao('')}
-                      disabled={savingDataInauguracao}
+                      onClick={() => setDataEtapa('')}
+                      disabled={savingDataEtapa}
                       className="text-xs text-slate-500 hover:text-slate-900 h-9 px-2"
                       title="Limpar data"
                     >
@@ -581,19 +644,17 @@ export default function DocumentoEditor() {
                     </Button>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Data em que a unidade franqueada iniciou ou iniciará suas operações.
-                </p>
+                <p className="text-[11px] text-slate-500">{metaCurrent.helper}</p>
               </div>
 
               {/* Botão de salvar data dedicado */}
               <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-200/60">
                 <div className="text-xs text-slate-500">
-                  {contrato.data_inauguracao || contrato.data_inicio ? (
+                  {metaCurrent.currentRecordedDate ? (
                     <span>
                       Gravada:{' '}
                       <strong className="text-slate-800">
-                        {formatDateBR(contrato.data_inauguracao || contrato.data_inicio)}
+                        {formatDateBR(metaCurrent.currentRecordedDate)}
                       </strong>
                     </span>
                   ) : (
@@ -604,19 +665,17 @@ export default function DocumentoEditor() {
                 <Button
                   type="button"
                   size="sm"
-                  onClick={handleSaveDataInauguracao}
+                  onClick={handleSaveDataEtapa}
                   disabled={
-                    savingDataInauguracao ||
-                    dataInauguracao ===
-                      (contrato.data_inauguracao
-                        ? formatDateInput(contrato.data_inauguracao)
-                        : contrato.data_inicio
-                          ? formatDateInput(contrato.data_inicio)
-                          : '')
+                    savingDataEtapa ||
+                    dataEtapa ===
+                      (metaCurrent.currentRecordedDate
+                        ? formatDateInput(metaCurrent.currentRecordedDate)
+                        : '')
                   }
                   className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold h-8 gap-1.5 shadow-sm"
                 >
-                  {savingDataInauguracao ? (
+                  {savingDataEtapa ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
                     <Save className="w-3.5 h-3.5" />

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T19:47:08.413Z",
+  "generatedAt": "2026-09-16T20:08:53.222Z",
   "collections": [
     {
       "name": "users",
@@ -143,7 +143,15 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Recebimento da COF", "Pré-Contrato", "Contrato", "Inauguração"]
+          "selectValues": [
+            "Recebimento da COF",
+            "Pré-Contrato",
+            "Pagamento da Taxa de Franquia",
+            "Busca do Ponto",
+            "Abertura do CNPJ",
+            "Contrato",
+            "Inauguração"
+          ]
         },
         {
           "name": "status",

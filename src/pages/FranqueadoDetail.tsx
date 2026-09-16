@@ -37,7 +37,7 @@ import {
   formatCPFOrCNPJ,
   formatVigencia5Anos,
 } from '@/lib/formatters'
-import { StatusBadge, getStatusExibido } from '@/components/StatusBadge'
+import { StatusBadge, getStatusExibido, isEtapaSomenteData } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -265,7 +265,15 @@ export default function FranqueadoDetail() {
     }
   }
 
-  const allTypes: ContractType[] = ['Recebimento da COF', 'Pré-Contrato', 'Contrato', 'Inauguração']
+  const allTypes: ContractType[] = [
+    'Recebimento da COF',
+    'Pré-Contrato',
+    'Pagamento da Taxa de Franquia',
+    'Busca do Ponto',
+    'Abertura do CNPJ',
+    'Contrato',
+    'Inauguração',
+  ]
 
   if (loading) {
     return (
@@ -600,8 +608,8 @@ export default function FranqueadoDetail() {
                       <span className="text-base font-bold text-slate-900">{contrato.tipo}</span>
                       <StatusBadge status={getStatusExibido(contrato)} />
 
-                      {/* Expiry Pill (apenas para contratos não-inauguração com vencimento) */}
-                      {contrato.tipo !== 'Inauguração' && (
+                      {/* Expiry Pill (apenas para contratos com vencimento / com documento) */}
+                      {!isEtapaSomenteData(contrato.tipo) && (
                         <>
                           {expiry?.isExpired ? (
                             <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 px-2.5 py-0.5 rounded-full shadow-xs">
@@ -619,13 +627,25 @@ export default function FranqueadoDetail() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-                      {contrato.tipo === 'Inauguração' ? (
+                      {isEtapaSomenteData(contrato.tipo) ? (
                         <div>
-                          <span className="text-slate-400">Data de Inauguração: </span>
+                          <span className="text-slate-400">
+                            {contrato.tipo === 'Pagamento da Taxa de Franquia'
+                              ? 'Data do Pagamento: '
+                              : contrato.tipo === 'Busca do Ponto'
+                                ? 'Data de Definição: '
+                                : contrato.tipo === 'Abertura do CNPJ'
+                                  ? 'Data de Abertura: '
+                                  : 'Data de Inauguração: '}
+                          </span>
                           <span className="font-semibold tabular-nums text-slate-800">
-                            {contrato.data_inauguracao || contrato.data_inicio
-                              ? formatDateBR(contrato.data_inauguracao || contrato.data_inicio)
-                              : 'Não informada'}
+                            {contrato.tipo === 'Inauguração'
+                              ? contrato.data_inauguracao || contrato.data_inicio
+                                ? formatDateBR(contrato.data_inauguracao || contrato.data_inicio)
+                                : 'Não informada'
+                              : contrato.data_inicio
+                                ? formatDateBR(contrato.data_inicio)
+                                : 'Não informada'}
                           </span>
                         </div>
                       ) : (
@@ -663,7 +683,7 @@ export default function FranqueadoDetail() {
 
                   {/* Right: Actions */}
                   <div className="flex items-center gap-2 self-end md:self-center">
-                    {contrato.tipo === 'Inauguração' ? (
+                    {isEtapaSomenteData(contrato.tipo) ? (
                       <Button
                         asChild
                         size="sm"
@@ -671,7 +691,11 @@ export default function FranqueadoDetail() {
                       >
                         <Link to={`/documento/${contrato.id}`}>
                           <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                          {contrato.data_inauguracao || contrato.data_inicio
+                          {(
+                            contrato.tipo === 'Inauguração'
+                              ? contrato.data_inauguracao || contrato.data_inicio
+                              : contrato.data_inicio
+                          )
                             ? 'Editar Data'
                             : 'Lançar Data'}
                         </Link>

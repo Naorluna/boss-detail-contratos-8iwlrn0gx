@@ -200,7 +200,7 @@ export default function FranqueadosList() {
             } | null = null
 
             fContracts.forEach((c) => {
-              if (c.data_assinatura) {
+              if (c.tipo === 'Contrato' && c.data_assinatura) {
                 const exp = getContratoExpiryInfo(c)
                 const dataFimCalculada = getVigenciaFimDate(c.data_assinatura)
                 if (!closestExpiry || exp.daysRemaining < closestExpiry.expiry.daysRemaining) {
